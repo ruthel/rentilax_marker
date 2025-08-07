@@ -13,6 +13,10 @@ import '../services/database_service.dart';
 import '../services/pdf_service.dart';
 import '../models/locataire.dart';
 import '../models/cite.dart';
+import '../widgets/modern_app_bar.dart';
+import '../widgets/modern_card.dart';
+import '../widgets/modern_stats_card.dart';
+import '../widgets/modern_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -79,6 +83,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final localizations = context.l10n;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     double totalConsommation =
         _monthlyReleves.fold(0.0, (sum, item) => sum + item.consommation);
     double totalMontant =
@@ -91,12 +98,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         .fold(0.0, (sum, item) => sum + item.montant);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(localizations.appTitle),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: ModernAppBar(
+        title: localizations.appTitle,
+        showBackButton: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Icons.search_rounded),
             onPressed: () {
               Navigator.push(
                 context,
@@ -111,134 +118,257 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       body: RefreshIndicator(
         onRefresh: _loadMonthlyStats,
-        child: Padding(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${localizations.readingMonth}: ${DateFormat.MMMM('fr_FR').format(DateTime.now())}',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 10),
-                      _isLoadingStats
-                          ? const Center(child: CircularProgressIndicator())
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    '${localizations.totalConsumption}: ${totalConsommation.toStringAsFixed(2)} unités'),
-                                Text(
-                                    '${localizations.totalAmount}: ${totalMontant.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}'),
-                                Text(
-                                    '${localizations.totalPaidAmount}: ${totalPaidAmount.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}',
-                                    style: TextStyle(color: Colors.green)),
-                                Text(
-                                    '${localizations.totalUnpaidAmount}: ${totalUnpaidAmount.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}',
-                                    style: TextStyle(color: Colors.red)),
-                                if (_monthlyReleves.isEmpty)
-                                  Text(localizations.noReadingsForThisMonth),
-                              ],
-                            ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed:
-                              _monthlyReleves.isEmpty || _configuration == null
-                                  ? null
-                                  : () async {
-                                      final now = DateTime.now();
-                                      await PdfService.generateMonthlyReport(
-                                        releves: _monthlyReleves,
-                                        locataires: _allLocataires,
-                                        configuration: _configuration!,
-                                        cites: _allCites,
-                                        month: now.month,
-                                        year: now.year,
-                                        localizations: localizations,
-                                      );
-                                    },
-                          icon: const Icon(Icons.print),
-                          label: Text(localizations.printMonthlyReport),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+              // En-tête avec le mois actuel
+              ModernCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildMenuCard(
-                      context,
-                      'Tableau de Bord',
-                      Icons.dashboard,
-                      Colors.indigo,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) =>
-                                const EnhancedDashboardScreen()),
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.calendar_month_rounded,
+                            color: colorScheme.primary,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                localizations.readingMonth,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              Text(
+                                DateFormat.MMMM('fr_FR').format(DateTime.now()),
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    _buildMenuCard(
-                      context,
-                      localizations.cities,
-                      Icons.location_city,
-                      Colors.blue,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const CitesScreen()),
-                      ),
-                    ),
-                    _buildMenuCard(
-                      context,
-                      localizations.tenants,
-                      Icons.people,
-                      Colors.green,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const LocatairesScreen()),
-                      ),
-                    ),
-                    _buildMenuCard(
-                      context,
-                      localizations.readings,
-                      Icons.assessment,
-                      Colors.orange,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const RelevesScreen()),
-                      ),
-                    ),
-                    _buildMenuCard(
-                      context,
-                      localizations.configuration,
-                      Icons.settings,
-                      Colors.purple,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const ConfigurationScreen()),
-                      ),
+                    const SizedBox(height: 20),
+                    ModernButton(
+                      text: localizations.printMonthlyReport,
+                      icon: Icons.print_rounded,
+                      isFullWidth: true,
+                      onPressed:
+                          _monthlyReleves.isEmpty || _configuration == null
+                              ? null
+                              : () async {
+                                  final now = DateTime.now();
+                                  await PdfService.generateMonthlyReport(
+                                    releves: _monthlyReleves,
+                                    locataires: _allLocataires,
+                                    configuration: _configuration!,
+                                    cites: _allCites,
+                                    month: now.month,
+                                    year: now.year,
+                                    localizations: localizations,
+                                  );
+                                },
                     ),
                   ],
                 ),
               ),
+
+              const SizedBox(height: 24),
+
+              // Statistiques du mois
+              Text(
+                'Statistiques du mois',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              _isLoadingStats
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ModernStatsCard(
+                                title: localizations.totalConsumption,
+                                value:
+                                    '${totalConsommation.toStringAsFixed(1)}',
+                                subtitle: 'unités',
+                                icon: Icons.water_drop_rounded,
+                                iconColor: colorScheme.primary,
+                              ),
+                            ),
+                            Expanded(
+                              child: ModernStatsCard(
+                                title: localizations.totalAmount,
+                                value: '${totalMontant.toStringAsFixed(0)}',
+                                subtitle: _configuration?.devise ?? 'FCFA',
+                                icon: Icons.account_balance_wallet_rounded,
+                                iconColor: colorScheme.secondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ModernStatsCard(
+                                title: localizations.totalPaidAmount,
+                                value: '${totalPaidAmount.toStringAsFixed(0)}',
+                                subtitle: _configuration?.devise ?? 'FCFA',
+                                icon: Icons.check_circle_rounded,
+                                iconColor: Colors.green,
+                                trend: totalMontant > 0
+                                    ? '${((totalPaidAmount / totalMontant) * 100).toInt()}%'
+                                    : null,
+                                isPositiveTrend: true,
+                              ),
+                            ),
+                            Expanded(
+                              child: ModernStatsCard(
+                                title: localizations.totalUnpaidAmount,
+                                value:
+                                    '${totalUnpaidAmount.toStringAsFixed(0)}',
+                                subtitle: _configuration?.devise ?? 'FCFA',
+                                icon: Icons.pending_rounded,
+                                iconColor: Colors.orange,
+                                trend: totalMontant > 0
+                                    ? '${((totalUnpaidAmount / totalMontant) * 100).toInt()}%'
+                                    : null,
+                                isPositiveTrend: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_monthlyReleves.isEmpty)
+                          ModernCard(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    localizations.noReadingsForThisMonth,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+
+              const SizedBox(height: 32),
+
+              // Menu principal
+              Text(
+                'Menu principal',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.1,
+                children: [
+                  _buildModernMenuCard(
+                    context,
+                    'Tableau de Bord',
+                    Icons.dashboard_rounded,
+                    colorScheme.primary,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              const EnhancedDashboardScreen()),
+                    ),
+                  ),
+                  _buildModernMenuCard(
+                    context,
+                    localizations.cities,
+                    Icons.location_city_rounded,
+                    colorScheme.secondary,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const CitesScreen()),
+                    ),
+                  ),
+                  _buildModernMenuCard(
+                    context,
+                    localizations.tenants,
+                    Icons.people_rounded,
+                    Colors.green,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const LocatairesScreen()),
+                    ),
+                  ),
+                  _buildModernMenuCard(
+                    context,
+                    localizations.readings,
+                    Icons.assessment_rounded,
+                    Colors.orange,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const RelevesScreen()),
+                    ),
+                  ),
+                  _buildModernMenuCard(
+                    context,
+                    localizations.configuration,
+                    Icons.settings_rounded,
+                    Colors.purple,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ConfigurationScreen()),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -246,50 +376,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildMenuCard(
+  Widget _buildModernMenuCard(
     BuildContext context,
     String title,
     IconData icon,
     Color color,
     VoidCallback onTap,
   ) {
-    return Card(
-      elevation: 4,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                color.withValues(alpha: 0.8),
-                color.withValues(alpha: 0.6),
-              ],
+    final theme = Theme.of(context);
+
+    return ModernCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              icon,
+              size: 32,
+              color: color,
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 48,
-                color: Colors.white,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
+          const SizedBox(height: 16),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

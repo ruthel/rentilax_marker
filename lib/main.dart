@@ -12,6 +12,7 @@ import 'services/pin_service.dart';
 import 'services/theme_service.dart';
 import 'services/language_service.dart';
 import 'services/enhanced_notification_service.dart';
+import 'widgets/modern_splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,20 +50,8 @@ class RentilaxMarkerApp extends StatelessWidget {
               Locale('fr'), // French
             ],
             locale: languageService.currentLocale,
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
-                brightness: Brightness.light,
-              ),
-              useMaterial3: true,
-            ),
-            darkTheme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
-                brightness: Brightness.dark,
-              ),
-              useMaterial3: true,
-            ),
+            theme: ThemeService.lightTheme,
+            darkTheme: ThemeService.darkTheme,
             themeMode: themeService.themeMode,
             home: const InitialScreen(),
             debugShowCheckedModeBanner: false,
@@ -109,12 +98,19 @@ class _InitialScreenState extends State<InitialScreen> {
       );
     }
 
-    return _isPinSet
+    final targetScreen = _isPinSet
         ? PinEntryScreen(onPinVerified: () {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const HomeScreen()),
             );
           })
         : const HomeScreen();
+
+    return ModernSplashScreen(
+      title: 'Rentilax Marker',
+      subtitle: 'Gestion moderne des locataires',
+      duration: const Duration(seconds: 2),
+      child: targetScreen,
+    );
   }
 }

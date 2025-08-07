@@ -6,6 +6,13 @@ import '../models/locataire.dart';
 import '../models/cite.dart';
 import '../services/database_service.dart';
 import '../services/contacts_service.dart';
+import '../widgets/modern_app_bar.dart';
+import '../widgets/modern_card.dart';
+import '../widgets/modern_input.dart';
+import '../widgets/modern_list_tile.dart';
+import '../widgets/modern_button.dart';
+import '../widgets/modern_snackbar.dart';
+import '../utils/modern_page_transitions.dart';
 import 'locataire_history_screen.dart';
 
 class LocatairesScreen extends StatefulWidget {
@@ -46,14 +53,15 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
       setState(() {
         _locataires = locataires;
         _cites = cites;
-        _filterLocataires(); // Apply initial filter
+        _filterLocataires();
         _isLoading = false;
       });
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
+        ModernSnackBar.showError(
+          context,
+          'Erreur lors du chargement: $e',
         );
       }
     }
@@ -88,129 +96,311 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
   @override
   Widget build(BuildContext context) {
     final localizations = context.l10n;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(localizations.locatairesScreenTitle),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: ModernAppBar(
+        title: localizations.locatairesScreenTitle,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            onPressed: () => _showLocataireDialog(),
+            tooltip: localizations.addTenant,
+          ),
+        ],
       ),
-      body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              labelText: localizations.searchTenant,
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.search),
+      body: Column(
+        children: [
+          // Barre de recherche moderne
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ModernSearchInput(
+              hint: localizations.searchTenant,
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                  _filterLocataires();
+                });
+              },
+              onClear: () {
+                setState(() {
+                  _searchQuery = '';
+                  _filterLocataires();
+                });
+              },
             ),
           ),
-        ),
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _filteredLocataires.isEmpty
-                  ? Center(
-                      child: Text(
-                        localizations.noLocataireFound,
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadData,
-                      child: ListView.builder(
-                        itemCount: _filteredLocataires.length,
-                        itemBuilder: (context, index) {
-                          final locataire = _filteredLocataires[index];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
+
+          // Statistiques rapides
+          if (!_isLoading && _locataires.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: ModernCard(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            '${_locataires.length}',
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.primary,
                             ),
-                            child: ListTile(
-                              leading: const CircleAvatar(
-                                child: Icon(Icons.person),
-                              ),
-                              title: Text(
-                                locataire.nomComplet,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                      'Cité: ${_getCiteNom(locataire.citeId)}'),
-                                  Text(
-                                      '${localizations.housingNumber}: ${locataire.numeroLogement}'),
-                                  if (locataire.tarifPersonnalise != null)
-                                    Text(
-                                        '${localizations.customRate}: ${locataire.tarifPersonnalise} FCFA'),
-                                ],
-                              ),
-                              isThreeLine: true,
-                              trailing: PopupMenuButton(
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(
-                                    value: 'view_history',
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.history),
-                                        const SizedBox(width: 8),
-                                        Text(localizations.viewHistory),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'edit',
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.edit),
-                                        const SizedBox(width: 8),
-                                        Text(localizations.modify),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.delete,
-                                            color: Colors.red),
-                                        const SizedBox(width: 8),
-                                        Text(localizations.delete,
-                                            style: const TextStyle(
-                                                color: Colors.red)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                onSelected: (value) {
-                                  if (value == 'view_history') {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            LocataireHistoryScreen(
-                                                locataire: locataire),
-                                      ),
-                                    );
-                                  } else if (value == 'edit') {
-                                    _showLocataireDialog(locataire);
-                                  } else if (value == 'delete') {
-                                    _confirmDelete(locataire);
-                                  }
-                                },
-                              ),
+                          ),
+                          Text(
+                            'Total locataires',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                          );
-                        },
+                          ),
+                        ],
                       ),
                     ),
-        ),
-      ]),
-      floatingActionButton: FloatingActionButton(
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: colorScheme.outline.withValues(alpha: 0.3),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            '${_filteredLocataires.length}',
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.secondary,
+                            ),
+                          ),
+                          Text(
+                            'Affichés',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 16),
+
+          // Liste des locataires
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredLocataires.isEmpty
+                    ? _buildEmptyState(localizations)
+                    : RefreshIndicator(
+                        onRefresh: _loadData,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          itemCount: _filteredLocataires.length,
+                          itemBuilder: (context, index) {
+                            final locataire = _filteredLocataires[index];
+                            return _buildModernTenantCard(
+                                locataire, localizations);
+                          },
+                        ),
+                      ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showLocataireDialog(),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.person_add_rounded),
+        label: Text(localizations.addTenant),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(dynamic localizations) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Icon(
+                Icons.people_outline_rounded,
+                size: 64,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              _searchQuery.isEmpty
+                  ? 'Aucun locataire enregistré'
+                  : localizations.noLocataireFound,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _searchQuery.isEmpty
+                  ? 'Commencez par ajouter votre premier locataire'
+                  : 'Essayez avec d\'autres termes de recherche',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (_searchQuery.isEmpty) ...[
+              const SizedBox(height: 32),
+              ModernButton(
+                text: localizations.addTenant,
+                icon: Icons.person_add_rounded,
+                onPressed: () => _showLocataireDialog(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernTenantCard(Locataire locataire, dynamic localizations) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return ModernListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.person_rounded,
+          color: colorScheme.primary,
+          size: 24,
+        ),
+      ),
+      title: locataire.nomComplet,
+      subtitle: _buildTenantSubtitle(locataire, localizations),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (locataire.tarifPersonnalise != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.tertiary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Tarif perso',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.tertiary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ],
+      ),
+      onTap: () => _showTenantOptions(locataire, localizations),
+    );
+  }
+
+  String _buildTenantSubtitle(Locataire locataire, dynamic localizations) {
+    final citeNom = _getCiteNom(locataire.citeId);
+    final parts = <String>[
+      'Cité: $citeNom',
+      '${localizations.housingNumber}: ${locataire.numeroLogement}',
+    ];
+
+    if (locataire.tarifPersonnalise != null) {
+      parts.add(
+          '${localizations.customRate}: ${locataire.tarifPersonnalise} FCFA');
+    }
+
+    return parts.join('\n');
+  }
+
+  void _showTenantOptions(Locataire locataire, dynamic localizations) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outline
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              locataire.nomComplet,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 20),
+            ModernListTile(
+              leading: const Icon(Icons.history_rounded),
+              title: localizations.viewHistory,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  ModernPageTransitions.slideFromRight(
+                    LocataireHistoryScreen(locataire: locataire),
+                  ),
+                );
+              },
+            ),
+            ModernListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: localizations.modify,
+              onTap: () {
+                Navigator.pop(context);
+                _showLocataireDialog(locataire);
+              },
+            ),
+            ModernListTile(
+              leading: Icon(Icons.delete_rounded,
+                  color: Theme.of(context).colorScheme.error),
+              title: localizations.delete,
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDelete(locataire);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -218,8 +408,9 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
   void _showLocataireDialog([Locataire? locataire]) {
     final localizations = context.l10n;
     if (_cites.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(localizations.locataireRequired)),
+      ModernSnackBar.showWarning(
+        context,
+        'Vous devez d\'abord créer une cité avant d\'ajouter un locataire',
       );
       return;
     }
@@ -250,9 +441,11 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextButton.icon(
-                  icon: const Icon(Icons.contact_page_outlined),
-                  label: Text(localizations.chooseFromContacts),
+                ModernButton(
+                  text: localizations.chooseFromContacts,
+                  icon: Icons.contact_page_outlined,
+                  type: ModernButtonType.outline,
+                  isFullWidth: true,
                   onPressed: () async {
                     final selectedContact = await _selectContact(context);
                     if (selectedContact != null) {
@@ -273,27 +466,23 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                ModernInput(
+                  label: '${localizations.firstName} *',
                   controller: prenomController,
-                  decoration: InputDecoration(
-                    labelText: '${localizations.firstName} *',
-                    border: const OutlineInputBorder(),
-                  ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                ModernInput(
+                  label: '${localizations.lastName} *',
                   controller: nomController,
-                  decoration: InputDecoration(
-                    labelText: '${localizations.lastName} *',
-                    border: const OutlineInputBorder(),
-                  ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   value: selectedCiteId,
                   decoration: InputDecoration(
                     labelText: 'Cité *',
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   items: _cites
                       .map((cite) => DropdownMenuItem(
@@ -308,46 +497,34 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                ModernInput(
+                  label: '${localizations.housingNumber} *',
                   controller: numeroLogementController,
-                  decoration: InputDecoration(
-                    labelText: '${localizations.housingNumber} *',
-                    border: const OutlineInputBorder(),
-                  ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                ModernInput(
+                  label: localizations.phone,
                   controller: telephoneController,
-                  decoration: InputDecoration(
-                    labelText: localizations.phone,
-                    border: const OutlineInputBorder(),
-                  ),
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                ModernInput(
+                  label: localizations.email,
                   controller: emailController,
-                  decoration: InputDecoration(
-                    labelText: localizations.email,
-                    border: const OutlineInputBorder(),
-                  ),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                ModernInput(
+                  label: localizations.customRate,
+                  helperText: localizations.leaveEmptyForBaseRate,
                   controller: tarifController,
-                  decoration: InputDecoration(
-                    labelText: localizations.customRate,
-                    border: const OutlineInputBorder(),
-                    helperText: localizations.leaveEmptyForBaseRate,
-                  ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
-                ListTile(
-                  title: Text(localizations.entryDate),
-                  subtitle: Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
-                  trailing: const Icon(Icons.calendar_today),
+                ModernListTile(
+                  leading: const Icon(Icons.calendar_today_rounded),
+                  title: localizations.entryDate,
+                  subtitle: DateFormat('dd/MM/yyyy').format(selectedDate),
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
@@ -364,11 +541,13 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
             ),
           ),
           actions: [
-            TextButton(
+            ModernButton(
+              text: localizations.cancel,
+              type: ModernButtonType.ghost,
               onPressed: () => Navigator.pop(context),
-              child: Text(localizations.cancel),
             ),
-            ElevatedButton(
+            ModernButton(
+              text: locataire == null ? localizations.add : localizations.save,
               onPressed: () => _saveLocataire(
                 locataire,
                 prenomController.text,
@@ -380,8 +559,6 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
                 tarifController.text,
                 selectedDate,
               ),
-              child: Text(
-                  locataire == null ? localizations.add : localizations.modify),
             ),
           ],
         ),
@@ -404,8 +581,9 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
     if (prenom.trim().isEmpty ||
         nom.trim().isEmpty ||
         numeroLogement.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(localizations.firstNameLastNameHousingRequired)),
+      ModernSnackBar.showError(
+        context,
+        localizations.firstNameLastNameHousingRequired,
       );
       return;
     }
@@ -414,8 +592,9 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
     if (tarif.trim().isNotEmpty) {
       tarifPersonnalise = double.tryParse(tarif.trim());
       if (tarifPersonnalise == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(localizations.invalidRate)),
+        ModernSnackBar.showError(
+          context,
+          localizations.invalidRate,
         );
         return;
       }
@@ -431,10 +610,9 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
 
     if (existingLocataireWithSameNumber != null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(localizations.housingNumberExists(numeroLogement.trim()))),
+      ModernSnackBar.showError(
+        context,
+        localizations.housingNumberExists(numeroLogement.trim()),
       );
       return;
     }
@@ -473,17 +651,17 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
       Navigator.pop(context);
       _loadData();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(existingLocataire == null
-              ? localizations.tenantAddedSuccessfully
-              : localizations.tenantModifiedSuccessfully),
-        ),
+      ModernSnackBar.showSuccess(
+        context,
+        existingLocataire == null
+            ? localizations.tenantAddedSuccessfully
+            : localizations.tenantModifiedSuccessfully,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${localizations.errorSavingTenant}: $e')),
+      ModernSnackBar.showError(
+        context,
+        '${localizations.errorSavingTenant}: $e',
       );
     }
   }
@@ -496,15 +674,15 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
         title: Text(localizations.confirmDeletion),
         content: Text(localizations.confirmDeleteTenant(locataire.nomComplet)),
         actions: [
-          TextButton(
+          ModernButton(
+            text: localizations.cancel,
+            type: ModernButtonType.ghost,
             onPressed: () => Navigator.pop(context),
-            child: Text(localizations.cancel),
           ),
-          ElevatedButton(
+          ModernButton(
+            text: localizations.delete,
+            type: ModernButtonType.danger,
             onPressed: () => _deleteLocataire(locataire),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(localizations.delete,
-                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -519,48 +697,52 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
       Navigator.pop(context);
       _loadData();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(localizations.tenantDeletedSuccessfully)),
+      ModernSnackBar.showSuccess(
+        context,
+        localizations.tenantDeletedSuccessfully,
       );
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${localizations.errorDeletingTenant}: $e')),
+      ModernSnackBar.showError(
+        context,
+        '${localizations.errorDeletingTenant}: $e',
       );
     }
   }
-}
 
-Future<Contact?> _selectContact(BuildContext context) async {
-  final localizations = context.l10n;
-  final hasPermission = await ContactsHelper.requestContactsPermission();
-  if (!hasPermission) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(localizations.permissionDenied)),
-      );
+  Future<Contact?> _selectContact(BuildContext context) async {
+    final localizations = context.l10n;
+    final hasPermission = await ContactsHelper.requestContactsPermission();
+    if (!hasPermission) {
+      if (context.mounted) {
+        ModernSnackBar.showError(
+          context,
+          localizations.permissionDenied,
+        );
+      }
+      return null;
     }
-    return null;
-  }
 
-  final contacts = await ContactsHelper.getContacts();
-  if (contacts.isEmpty) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(localizations.noContactFound)),
-      );
+    final contacts = await ContactsHelper.getContacts();
+    if (contacts.isEmpty) {
+      if (context.mounted) {
+        ModernSnackBar.showInfo(
+          context,
+          localizations.noContactFound,
+        );
+      }
+      return null;
     }
-    return null;
+
+    if (!context.mounted) return null;
+    final selectedContact = await showDialog<Contact>(
+      context: context,
+      builder: (context) => _ContactSelectionDialog(contacts: contacts),
+    );
+
+    return selectedContact;
   }
-
-  if (!context.mounted) return null;
-  final selectedContact = await showDialog<Contact>(
-    context: context,
-    builder: (context) => _ContactSelectionDialog(contacts: contacts),
-  );
-
-  return selectedContact;
 }
 
 class _ContactSelectionDialog extends StatefulWidget {
@@ -611,25 +793,20 @@ class _ContactSelectionDialogState extends State<_ContactSelectionDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: '${localizations.search}...',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.search),
-                ),
-              ),
+            ModernSearchInput(
+              hint: '${localizations.search}...',
+              controller: _searchController,
             ),
+            const SizedBox(height: 16),
             Expanded(
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: _filteredContacts.length,
                 itemBuilder: (context, index) {
                   final contact = _filteredContacts[index];
-                  return ListTile(
-                    title: Text(contact.displayName),
+                  return ModernListTile(
+                    leading: const Icon(Icons.person_rounded),
+                    title: contact.displayName,
                     onTap: () => Navigator.of(context).pop(contact),
                   );
                 },
@@ -639,9 +816,10 @@ class _ContactSelectionDialogState extends State<_ContactSelectionDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        ModernButton(
+          text: localizations.cancel,
+          type: ModernButtonType.ghost,
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(localizations.cancel),
         ),
       ],
     );
