@@ -4,6 +4,7 @@ import '../models/cite.dart';
 import '../models/locataire.dart';
 import '../models/releve.dart';
 import '../models/configuration.dart';
+import '../models/payment_history.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -22,8 +23,9 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'rentilax_marker.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 4, // Incrémenter la version de la base de données
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -65,7 +67,10 @@ class DatabaseService {
         tarif REAL NOT NULL,
         montant REAL NOT NULL,
         dateReleve TEXT NOT NULL,
+        moisReleve TEXT NOT NULL,
         commentaire TEXT,
+        isPaid INTEGER NOT NULL DEFAULT 0,
+        paymentDate TEXT,
         FOREIGN KEY (locataireId) REFERENCES locataires (id)
       )
     ''');
@@ -88,6 +93,25 @@ class DatabaseService {
     });
   }
 
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Ajouter la colonne moisReleve à la table releves
+      await db.execute('ALTER TABLE releves ADD COLUMN moisReleve TEXT');
+
+      // Mettre à jour les relevés existants pour que moisReleve = dateReleve
+      await db.execute(
+          'UPDATE releves SET moisReleve = dateReleve WHERE moisReleve IS NULL');
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+          'ALTER TABLE releves ADD COLUMN isPaid INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE releves ADD COLUMN paymentDate TEXT');
+    }
+    if (oldVersion < 4) {
+      await _createNewTables(db);
+    }
+  }
+
   // CRUD pour les cités
   Future<int> insertCite(Cite cite) async {
     final db = await database;
@@ -102,7 +126,8 @@ class DatabaseService {
 
   Future<void> updateCite(Cite cite) async {
     final db = await database;
-    await db.update('cites', cite.toMap(), where: 'id = ?', whereArgs: [cite.id]);
+    await db
+        .update('cites', cite.toMap(), where: 'id = ?', whereArgs: [cite.id]);
   }
 
   Future<void> deleteCite(int id) async {
@@ -124,19 +149,41 @@ class DatabaseService {
 
   Future<List<Locataire>> getLocatairesByCite(int citeId) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = 
+    final List<Map<String, dynamic>> maps =
         await db.query('locataires', where: 'citeId = ?', whereArgs: [citeId]);
     return List.generate(maps.length, (i) => Locataire.fromMap(maps[i]));
   }
 
   Future<void> updateLocataire(Locataire locataire) async {
     final db = await database;
-    await db.update('locataires', locataire.toMap(), where: 'id = ?', whereArgs: [locataire.id]);
+    await db.update('locataires', locataire.toMap(),
+        where: 'id = ?', whereArgs: [locataire.id]);
   }
 
   Future<void> deleteLocataire(int id) async {
     final db = await database;
     await db.delete('locataires', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<Locataire?> getLocataireByNumeroLogementAndCite(
+      String numeroLogement, int citeId,
+      {int? excludeId}) async {
+    final db = await database;
+    String whereClause = 'numeroLogement = ? AND citeId = ?';
+    List<dynamic> whereArgs = [numeroLogement, citeId];
+
+    if (excludeId != null) {
+      whereClause += ' AND id != ?';
+      whereArgs.add(excludeId);
+    }
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      'locataires',
+      where: whereClause,
+      whereArgs: whereArgs,
+      limit: 1,
+    );
+    return maps.isNotEmpty ? Locataire.fromMap(maps.first) : null;
   }
 
   // CRUD pour les relevés
@@ -147,14 +194,19 @@ class DatabaseService {
 
   Future<List<Releve>> getReleves() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('releves', orderBy: 'dateReleve DESC');
+    final List<Map<String, dynamic>> maps =
+        await db.query('releves', orderBy: 'dateReleve DESC');
     return List.generate(maps.length, (i) => Releve.fromMap(maps[i]));
   }
 
-  Future<List<Releve>> getRelevesByLocataire(int locataireId) async {
+  Future<List<Releve>> getRelevesByLocataire(int locataireId,
+      {int? limit}) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = 
-        await db.query('releves', where: 'locataireId = ?', whereArgs: [locataireId], orderBy: 'dateReleve DESC');
+    final List<Map<String, dynamic>> maps = await db.query('releves',
+        where: 'locataireId = ?',
+        whereArgs: [locataireId],
+        orderBy: 'dateReleve DESC',
+        limit: limit);
     return List.generate(maps.length, (i) => Releve.fromMap(maps[i]));
   }
 
@@ -172,7 +224,8 @@ class DatabaseService {
 
   Future<void> updateReleve(Releve releve) async {
     final db = await database;
-    await db.update('releves', releve.toMap(), where: 'id = ?', whereArgs: [releve.id]);
+    await db.update('releves', releve.toMap(),
+        where: 'id = ?', whereArgs: [releve.id]);
   }
 
   Future<void> deleteReleve(int id) async {
@@ -180,12 +233,18 @@ class DatabaseService {
     await db.delete('releves', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<Releve?> getReleveForLocataireAndMonth(int locataireId, int month, int year) async {
+  Future<Releve?> getReleveForLocataireAndMonth(
+      int locataireId, int month, int year) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'releves',
-      where: "locataireId = ? AND strftime('%m', dateReleve) = ? AND strftime('%Y', dateReleve) = ?",
-      whereArgs: [locataireId, month.toString().padLeft(2, '0'), year.toString()],
+      where:
+          "locataireId = ? AND strftime('%m', moisReleve) = ? AND strftime('%Y', moisReleve) = ?",
+      whereArgs: [
+        locataireId,
+        month.toString().padLeft(2, '0'),
+        year.toString()
+      ],
       limit: 1,
     );
     return maps.isNotEmpty ? Releve.fromMap(maps.first) : null;
@@ -195,17 +254,33 @@ class DatabaseService {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'releves',
-      where: "strftime('%m', dateReleve) = ? AND strftime('%Y', dateReleve) = ?",
+      where:
+          "strftime('%m', moisReleve) = ? AND strftime('%Y', moisReleve) = ?",
       whereArgs: [month.toString().padLeft(2, '0'), year.toString()],
       orderBy: 'dateReleve DESC',
     );
     return List.generate(maps.length, (i) => Releve.fromMap(maps[i]));
   }
 
+  Future<void> updatePaymentStatus(
+      int releveId, bool isPaid, DateTime? paymentDate) async {
+    final db = await database;
+    await db.update(
+      'releves',
+      {
+        'isPaid': isPaid ? 1 : 0,
+        'paymentDate': paymentDate?.toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [releveId],
+    );
+  }
+
   // Configuration
   Future<Configuration> getConfiguration() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('configuration', limit: 1);
+    final List<Map<String, dynamic>> maps =
+        await db.query('configuration', limit: 1);
     if (maps.isNotEmpty) {
       return Configuration.fromMap(maps.first);
     }
@@ -220,6 +295,153 @@ class DatabaseService {
 
   Future<void> updateConfiguration(Configuration config) async {
     final db = await database;
-    await db.update('configuration', config.toMap(), where: 'id = ?', whereArgs: [config.id]);
+    await db.update('configuration', config.toMap(),
+        where: 'id = ?', whereArgs: [config.id]);
+  }
+
+  // Nouvelles méthodes pour les fonctionnalités avancées
+
+  // Méthodes pour l'historique des paiements
+  Future<int> insertPaymentHistory(PaymentHistory payment) async {
+    final db = await database;
+    return await db.insert('payment_history', payment.toMap());
+  }
+
+  Future<List<PaymentHistory>> getPaymentHistory(int releveId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'payment_history',
+      where: 'releve_id = ?',
+      whereArgs: [releveId],
+      orderBy: 'payment_date DESC',
+    );
+    return List.generate(maps.length, (i) => PaymentHistory.fromMap(maps[i]));
+  }
+
+  // Méthodes pour les relevés en retard
+  Future<List<Releve>> getOverdueReleves() async {
+    final db = await database;
+    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+    final List<Map<String, dynamic>> maps = await db.query(
+      'releves',
+      where: 'isPaid = 0 AND moisReleve < ?',
+      whereArgs: [thirtyDaysAgo.toIso8601String()],
+      orderBy: 'moisReleve ASC',
+    );
+    return List.generate(maps.length, (i) => Releve.fromMap(maps[i]));
+  }
+
+  // Méthodes pour les analyses
+  Future<List<Releve>> getRelevesInPeriod(
+      DateTime startDate, DateTime endDate) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'releves',
+      where: 'dateReleve >= ? AND dateReleve <= ?',
+      whereArgs: [startDate.toIso8601String(), endDate.toIso8601String()],
+      orderBy: 'dateReleve DESC',
+    );
+    return List.generate(maps.length, (i) => Releve.fromMap(maps[i]));
+  }
+
+  Future<Releve?> getReleveById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'releves',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return maps.isNotEmpty ? Releve.fromMap(maps.first) : null;
+  }
+
+  Future<Locataire?> getLocataireById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'locataires',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return maps.isNotEmpty ? Locataire.fromMap(maps.first) : null;
+  }
+
+  Future<Cite?> getCiteById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'cites',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return maps.isNotEmpty ? Cite.fromMap(maps.first) : null;
+  }
+
+  // Méthodes pour les paiements partiels
+  Future<void> updatePaymentAmount(int releveId, double paidAmount,
+      bool isFullyPaid, DateTime? paymentDate) async {
+    final db = await database;
+    await db.update(
+      'releves',
+      {
+        'paidAmount': paidAmount,
+        'isPaid': isFullyPaid ? 1 : 0,
+        'paymentDate': paymentDate?.toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [releveId],
+    );
+  }
+
+  // Méthodes pour les notifications
+  Future<int> insertNotification({
+    required int locataireId,
+    required String type,
+    required String message,
+    required DateTime sentAt,
+  }) async {
+    final db = await database;
+    return await db.insert('notifications', {
+      'locataire_id': locataireId,
+      'type': type,
+      'message': message,
+      'sent_at': sentAt.toIso8601String(),
+    });
+  }
+
+  // Méthode pour créer les nouvelles tables lors de la mise à jour
+  Future<void> _createNewTables(Database db) async {
+    // Table pour l'historique des paiements
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS payment_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        releve_id INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        payment_method TEXT NOT NULL,
+        payment_date TEXT NOT NULL,
+        notes TEXT,
+        FOREIGN KEY (releve_id) REFERENCES releves (id)
+      )
+    ''');
+
+    // Table pour les notifications
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        locataire_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        sent_at TEXT NOT NULL,
+        FOREIGN KEY (locataire_id) REFERENCES locataires (id)
+      )
+    ''');
+
+    // Ajouter la colonne paidAmount à la table releves si elle n'existe pas
+    try {
+      await db
+          .execute('ALTER TABLE releves ADD COLUMN paidAmount REAL DEFAULT 0');
+    } catch (e) {
+      // La colonne existe déjà
+    }
   }
 }

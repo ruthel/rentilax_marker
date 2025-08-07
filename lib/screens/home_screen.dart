@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:rentilax_marker/l10n/l10n_extensions.dart';
+import 'package:rentilax_marker/l10n/l10n_extensions.dart';
 import 'cites_screen.dart';
 import 'locataires_screen.dart';
 import 'releves_screen.dart';
 import 'configuration_screen.dart';
+import 'enhanced_dashboard_screen.dart';
 import '../models/releve.dart';
 import '../models/configuration.dart';
 import '../services/database_service.dart';
@@ -18,7 +21,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final DatabaseService _databaseService = DatabaseService();
   List<Releve> _monthlyReleves = [];
   List<Locataire> _allLocataires = [];
@@ -29,14 +32,30 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadMonthlyStats();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Rafraîchir les données quand l'app revient au premier plan
+      _loadMonthlyStats();
+    }
   }
 
   Future<void> _loadMonthlyStats() async {
     setState(() => _isLoadingStats = true);
     try {
       final now = DateTime.now();
-      final releves = await _databaseService.getRelevesForMonth(now.month, now.year);
+      final releves =
+          await _databaseService.getRelevesForMonth(now.month, now.year);
       final locataires = await _databaseService.getLocataires();
       final cites = await _databaseService.getCites();
       final config = await _databaseService.getConfiguration();
@@ -51,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isLoadingStats = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement des stats: $e')),
+          SnackBar(content: Text(context.l10n.errorLoadingStats)),
         );
       }
     }
@@ -59,116 +78,155 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double totalConsommation = _monthlyReleves.fold(0.0, (sum, item) => sum + item.consommation);
-    double totalMontant = _monthlyReleves.fold(0.0, (sum, item) => sum + item.montant);
+    final localizations = context.l10n;
+    double totalConsommation =
+        _monthlyReleves.fold(0.0, (sum, item) => sum + item.consommation);
+    double totalMontant =
+        _monthlyReleves.fold(0.0, (sum, item) => sum + item.montant);
+    double totalPaidAmount = _monthlyReleves
+        .where((releve) => releve.isPaid)
+        .fold(0.0, (sum, item) => sum + item.montant);
+    double totalUnpaidAmount = _monthlyReleves
+        .where((releve) => !releve.isPaid)
+        .fold(0.0, (sum, item) => sum + item.montant);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rentilax Marker'),
+        title: Text(localizations.appTitle),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        onRefresh: _loadMonthlyStats,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${localizations.readingMonth}: ${DateFormat.MMMM('fr_FR').format(DateTime.now())}',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      _isLoadingStats
+                          ? const Center(child: CircularProgressIndicator())
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    '${localizations.totalConsumption}: ${totalConsommation.toStringAsFixed(2)} unités'),
+                                Text(
+                                    '${localizations.totalAmount}: ${totalMontant.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}'),
+                                Text(
+                                    '${localizations.totalPaidAmount}: ${totalPaidAmount.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}',
+                                    style: TextStyle(color: Colors.green)),
+                                Text(
+                                    '${localizations.totalUnpaidAmount}: ${totalUnpaidAmount.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}',
+                                    style: TextStyle(color: Colors.red)),
+                                if (_monthlyReleves.isEmpty)
+                                  Text(localizations.noReadingsForThisMonth),
+                              ],
+                            ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              _monthlyReleves.isEmpty || _configuration == null
+                                  ? null
+                                  : () async {
+                                      final now = DateTime.now();
+                                      await PdfService.generateMonthlyReport(
+                                        releves: _monthlyReleves,
+                                        locataires: _allLocataires,
+                                        configuration: _configuration!,
+                                        cites: _allCites,
+                                        month: now.month,
+                                        year: now.year,
+                                        localizations: localizations,
+                                      );
+                                    },
+                          icon: const Icon(Icons.print),
+                          label: Text(localizations.printMonthlyReport),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
                   children: [
-                    Text(
-                      'Statistiques du mois de ${DateFormat.MMMM('fr_FR').format(DateTime.now())}',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    _buildMenuCard(
+                      context,
+                      'Tableau de Bord',
+                      Icons.dashboard,
+                      Colors.indigo,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const EnhancedDashboardScreen()),
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    _isLoadingStats
-                        ? const Center(child: CircularProgressIndicator())
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Consommation totale: ${totalConsommation.toStringAsFixed(2)} unités'),
-                              Text('Montant total: ${totalMontant.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}'),
-                              if (_monthlyReleves.isEmpty)
-                                const Text('Aucun relevé pour ce mois.'),
-                            ],
-                          ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _monthlyReleves.isEmpty || _configuration == null
-                            ? null
-                            : () async {
-                                final now = DateTime.now();
-                                await PdfService.generateMonthlyReport(
-                                  releves: _monthlyReleves,
-                                  locataires: _allLocataires,
-                                  configuration: _configuration!,
-                                  cites: _allCites,
-                                  month: now.month,
-                                  year: now.year,
-                                );
-                              },
-                        icon: const Icon(Icons.print),
-                        label: const Text('Imprimer le rapport mensuel'),
+                    _buildMenuCard(
+                      context,
+                      localizations.cities,
+                      Icons.location_city,
+                      Colors.blue,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const CitesScreen()),
+                      ),
+                    ),
+                    _buildMenuCard(
+                      context,
+                      localizations.tenants,
+                      Icons.people,
+                      Colors.green,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LocatairesScreen()),
+                      ),
+                    ),
+                    _buildMenuCard(
+                      context,
+                      localizations.readings,
+                      Icons.assessment,
+                      Colors.orange,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const RelevesScreen()),
+                      ),
+                    ),
+                    _buildMenuCard(
+                      context,
+                      localizations.configuration,
+                      Icons.settings,
+                      Colors.purple,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ConfigurationScreen()),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _buildMenuCard(
-                    context,
-                    'Cités',
-                    Icons.location_city,
-                    Colors.blue,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const CitesScreen()),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Locataires',
-                    Icons.people,
-                    Colors.green,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const LocatairesScreen()),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Relevés',
-                    Icons.assessment,
-                    Colors.orange,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const RelevesScreen()),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    'Configuration',
-                    Icons.settings,
-                    Colors.purple,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ConfigurationScreen()),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -193,8 +251,8 @@ class _HomeScreenState extends State<HomeScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                color.withOpacity(0.8),
-                color.withOpacity(0.6),
+                color.withValues(alpha: 0.8),
+                color.withValues(alpha: 0.6),
               ],
             ),
           ),

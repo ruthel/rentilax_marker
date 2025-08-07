@@ -1,0 +1,292 @@
+{
+  "@@locale": "en",
+  "appTitle": "Rentilax Marker",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  
+  "citesScreenTitle": "Manage Cities",
+  "@citesScreenTitle": {
+    "description": "Title for the cities management screen"
+  },
+  
+  "locatairesScreenTitle": "Manage Tenants",
+  "@locatairesScreenTitle": {
+    "description": "Title for the tenants management screen"
+  },
+  
+  "relevesScreenTitle": "Manage Readings",
+  "@relevesScreenTitle": {
+    "description": "Title for the readings management screen"
+  },
+  
+  "configurationScreenTitle": "Configuration",
+  "@configurationScreenTitle": {
+    "description": "Title for the configuration screen"
+  },
+  
+  "noRelevesRecorded": "No readings recorded",
+  "totalConsumption": "Total Consumption",
+  "totalAmount": "Total Amount",
+  "noReadingsForThisMonth": "No readings for this month.",
+  "printMonthlyReport": "Print Monthly Report",
+  
+  "cities": "Cities",
+  "tenants": "Tenants",
+  "readings": "Readings",
+  "configuration": "Configuration",
+  
+  "addCity": "Add City",
+  "editCity": "Edit City",
+  "cityName": "City Name",
+  "address": "Address",
+  "cancel": "Cancel",
+  "add": "Add",
+  "save": "Save",
+  "modify": "Modify",
+  "delete": "Delete",
+  "close": "Close",
+  
+  "cityAddedSuccessfully": "City added successfully",
+  "cityModifiedSuccessfully": "City modified successfully",
+  "errorSavingCity": "Error saving city",
+  "confirmDeletion": "Confirm Deletion",
+  "cityDeletedSuccessfully": "City deleted successfully",
+  "errorDeletingCity": "Error deleting city",
+  "cityRequired": "City name is required",
+  "noCitiesRecorded": "No cities recorded",
+  
+  "confirmDeleteCity": "Are you sure you want to delete city \"{cityName}\"?",
+  "@confirmDeleteCity": {
+    "description": "Confirmation message for deleting a city",
+    "placeholders": {
+      "cityName": {
+        "type": "String",
+        "description": "The name of the city to delete"
+      }
+    }
+  },
+  
+  "noTenantsRecorded": "No tenants recorded",
+  "addTenant": "Add Tenant",
+  "editTenant": "Edit Tenant",
+  "chooseFromContacts": "Choose from contacts",
+  "firstName": "First Name",
+  "lastName": "Last Name",
+  "housingNumber": "Housing Number",
+  "phone": "Phone",
+  "email": "Email",
+  "customRate": "Custom Rate (FCFA)",
+  "leaveEmptyForBaseRate": "Leave empty to use base rate",
+  "entryDate": "Entry Date",
+  
+  "tenantAddedSuccessfully": "Tenant added successfully",
+  "tenantModifiedSuccessfully": "Tenant modified successfully",
+  "errorSavingTenant": "Error saving tenant",
+  "firstNameLastNameHousingRequired": "First name, last name and housing number are required",
+  "invalidRate": "Rate must be a valid number",
+  "tenantDeletedSuccessfully": "Tenant deleted successfully",
+  "errorDeletingTenant": "Error deleting tenant",
+  "noLocataireFound": "No tenant found",
+  
+  "housingNumberExists": "Housing number \"{housingNumber}\" already exists in this city",
+  "@housingNumberExists": {
+    "description": "Error message when housing number already exists",
+    "placeholders": {
+      "housingNumber": {
+        "type": "String",
+        "description": "The housing number that already exists"
+      }
+    }
+  },
+  
+  "confirmDeleteTenant": "Are you sure you want to delete tenant \"{tenantName}\"?",
+  "@confirmDeleteTenant": {
+    "description": "Confirmation message for deleting a tenant",
+    "placeholders": {
+      "tenantName": {
+        "type": "String",
+        "description": "The name of the tenant to delete"
+      }
+    }
+  },
+  
+  "viewHistory": "View History",
+  "historyOf": "History of {tenantName}",
+  "@historyOf": {
+    "description": "Title for tenant history screen",
+    "placeholders": {
+      "tenantName": {
+        "type": "String",
+        "description": "The name of the tenant"
+      }
+    }
+  },
+  
+  "noReadingsRecordedForThisTenant": "No readings recorded for this tenant",
+  "readingMonth": "Reading Month",
+  "creationDate": "Creation Date",
+  "consumption": "Consumption",
+  "amount": "Amount",
+  "status": "Status",
+  "paid": "Paid",
+  "unpaid": "Unpaid",
+  "on": "on",
+  
+  "viewDetails": "View Details",
+  "markAsUnpaid": "Mark as unpaid",
+  "markAsPaid": "Mark as paid",
+  "readingDetails": "Reading Details",
+  "tenant": "Tenant",
+  "oldIndex": "Old Index",
+  "newIndex": "New Index",
+  "appliedRate": "Applied Rate",
+  "comment": "Comment",
+  "paymentStatus": "Payment Status",
+  "paymentDate": "Payment Date",
+  
+  "newReading": "New Reading",
+  "modifyReading": "Modify Reading",
+  "locataireRequired": "Please create at least one tenant first",
+  "indexesRequired": "Indexes are required",
+  "indexesMustBeValidNumbers": "Indexes must be valid numbers",
+  "newIndexGreaterThanOldIndex": "New index must be greater than old index",
+  
+  "readingAlreadyExists": "A reading already exists for this tenant for the month of {month}",
+  "@readingAlreadyExists": {
+    "description": "Error message when reading already exists for a month",
+    "placeholders": {
+      "month": {
+        "type": "String",
+        "description": "The month for which reading already exists"
+      }
+    }
+  },
+  
+  "readingAddedSuccessfully": "Reading added successfully",
+  "readingModifiedSuccessfully": "Reading modified successfully",
+  "errorSavingReading": "Error saving reading",
+  "confirmDeleteReading": "Are you sure you want to delete this reading?",
+  "readingDeletedSuccessfully": "Reading deleted successfully",
+  "errorDeletingReading": "Error deleting reading",
+  "readingMarkedAsPaid": "Reading marked as paid",
+  "readingMarkedAsUnpaid": "Reading marked as unpaid",
+  "errorUpdatingPaymentStatus": "Error updating payment status",
+  
+  "apparence": "Appearance",
+  "theme": "Theme",
+  "system": "System",
+  "light": "Light",
+  "dark": "Dark",
+  "generalSettings": "General Settings",
+  "baseRatePerUnit": "Base rate per unit",
+  "currency": "Currency",
+  "currencyHelperText": "Currency used for calculations (e.g. FCFA, EUR, USD)",
+  "saveConfiguration": "Save Configuration",
+  "security": "Security",
+  "managePinCode": "Manage PIN Code",
+  "informations": "Informations",
+  "currentRate": "Current rate",
+  "lastModification": "Last modification",
+  "about": "About",
+  "appVersion": "Rentilax Marker v1.0.0",
+  "appDescription": "Consumption reading management application",
+  "features": "Features:",
+  "manageCitiesTenants": "• Manage cities and tenants",
+  "automatedReadings": "• Automated consumption readings",
+  "automaticAmountCalculation": "• Automatic amount calculation",
+  "customizableRates": "• Customizable rates per tenant",
+  
+  "baseRateRequired": "Base rate is required",
+  "positiveRate": "Rate must be a positive number",
+  "configurationSavedSuccessfully": "Configuration saved successfully",
+  "errorSavingConfiguration": "Error saving configuration",
+  
+  "pinSettings": "PIN Settings",
+  "setPinCode": "Set PIN Code",
+  "currentPin": "Current PIN",
+  "newPin": "New PIN",
+  "confirmNewPin": "Confirm New PIN",
+  "changePin": "Change PIN",
+  "pinCodeSetSuccessfully": "PIN code set successfully",
+  "pinCodeChangedSuccessfully": "PIN code changed successfully",
+  "pinCodeRemovedSuccessfully": "PIN code removed successfully",
+  "errorSettingPinCode": "Error setting PIN code",
+  "errorChangingPinCode": "Error changing PIN code",
+  "errorRemovingPinCode": "Error removing PIN code",
+  "pinCodeRequired": "PIN code is required",
+  "pinCodeMustBe5Digits": "PIN code must be 5 digits",
+  "pinCodesDoNotMatch": "PIN codes do not match",
+  "incorrectCurrentPin": "Incorrect current PIN",
+  "enterYourPin": "Enter your PIN to access the application",
+  "incorrectPin": "Incorrect PIN",
+  "pleaseEnter5DigitsPin": "Please enter a 5-digit PIN",
+  "unlock": "Unlock",
+  
+  "searchTenant": "Search tenant...",
+  "searchReading": "Search reading...",
+  "paymentStatusFilter": "Payment Status",
+  "all": "All",
+  "cityFilter": "City",
+  "allCities": "All Cities",
+  "monthFilter": "Month",
+  "allMonths": "All Months",
+  "noTenantFound": "No tenant found",
+  "noRelevesFound": "No readings found",
+  
+  "errorLoadingHistory": "Error loading history",
+  "errorLoadingStats": "Error loading stats",
+  "errorLoading": "Error loading",
+  "permissionDenied": "Permission denied",
+  "noContactFound": "No contact found",
+  "selectContact": "Select a contact",
+  "search": "Search...",
+  
+  "totalPaidAmount": "Total Paid Amount",
+  "totalUnpaidAmount": "Total Unpaid Amount",
+  "units": "units",
+  "unit": "unit",
+  "optional": "optional",
+  
+  "unknown": "Unknown",
+  "receiptOfConsumption": "Receipt of Consumption",
+  "city": "City",
+  "log": "Log",
+  "month": "Month",
+  "createdOn": "Created on",
+  "note": "Note",
+  "consumptionReport": "Consumption Report",
+  
+  "pageNumber": "Page {number}",
+  "@pageNumber": {
+    "description": "Page number indicator",
+    "placeholders": {
+      "number": {
+        "type": "int",
+        "description": "The page number"
+      }
+    }
+  },
+  
+  "generatedOn": "Generated on {date}",
+  "@generatedOn": {
+    "description": "Generation date indicator",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "description": "The generation date"
+      }
+    }
+  },
+  
+  "totalReadings": "Total readings: {count}",
+  "@totalReadings": {
+    "description": "Total readings count",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "description": "The number of readings"
+      }
+    }
+  }
+}

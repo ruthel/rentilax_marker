@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:provider/provider.dart';
+
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/generated/app_localizations.dart';
+
 import 'screens/home_screen.dart';
 import 'screens/pin_entry_screen.dart';
 import 'services/pin_service.dart';
+import 'services/theme_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,14 +16,59 @@ void main() async {
   runApp(const RentilaxMarkerApp());
 }
 
-class RentilaxMarkerApp extends StatefulWidget {
+class RentilaxMarkerApp extends StatelessWidget {
   const RentilaxMarkerApp({super.key});
 
   @override
-  State<RentilaxMarkerApp> createState() => _RentilaxMarkerAppState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => ThemeService(),
+      child: Consumer<ThemeService>(
+        builder: (context, themeService, child) {
+          return MaterialApp(
+            title: 'Rentilax Marker',
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('en'), // English
+              Locale('fr'), // French
+            ],
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+                brightness: Brightness.light,
+              ),
+              useMaterial3: true,
+            ),
+            darkTheme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+                brightness: Brightness.dark,
+              ),
+              useMaterial3: true,
+            ),
+            themeMode: themeService.themeMode,
+            home: const InitialScreen(),
+            debugShowCheckedModeBanner: false,
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _RentilaxMarkerAppState extends State<RentilaxMarkerApp> {
+class InitialScreen extends StatefulWidget {
+  const InitialScreen({super.key});
+
+  @override
+  State<InitialScreen> createState() => _InitialScreenState();
+}
+
+class _InitialScreenState extends State<InitialScreen> {
   bool _isPinSet = false;
   bool _isLoading = true;
 
@@ -29,37 +80,29 @@ class _RentilaxMarkerAppState extends State<RentilaxMarkerApp> {
 
   Future<void> _checkPinStatus() async {
     _isPinSet = await PinService.isPinSet();
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
         ),
       );
     }
 
-    return MaterialApp(
-      title: 'Rentilax Marker',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: _isPinSet
-          ? PinEntryScreen(onPinVerified: () {
-              setState(() {
-                _isPinSet = false; // Once verified, don't show PIN screen again until app restart
-              });
-            })
-          : const HomeScreen(),
-      debugShowCheckedModeBanner: false,
-    );
+    return _isPinSet
+        ? PinEntryScreen(onPinVerified: () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          })
+        : const HomeScreen();
   }
 }

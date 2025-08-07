@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rentilax_marker/l10n/l10n_extensions.dart';
 import '../models/cite.dart';
 import '../services/database_service.dart';
 
@@ -40,77 +41,79 @@ class _CitesScreenState extends State<CitesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestion des Cités'),
+        title: Text(localizations.citesScreenTitle),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _cites.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
-                    'Aucune cité enregistrée',
-                    style: TextStyle(fontSize: 18),
+                    localizations.noCitiesRecorded,
+                    style: const TextStyle(fontSize: 18),
                   ),
                 )
               : RefreshIndicator(
                   onRefresh: _loadCites,
                   child: ListView.builder(
-                      itemCount: _cites.length,
-                      itemBuilder: (context, index) {
-                        final cite = _cites[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                    itemCount: _cites.length,
+                    itemBuilder: (context, index) {
+                      final cite = _cites[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            child: Icon(Icons.location_city),
                           ),
-                          child: ListTile(
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.location_city),
-                            ),
-                            title: Text(
-                              cite.nom,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: cite.adresse != null
-                                ? Text(cite.adresse!)
-                                : null,
-                            trailing: PopupMenuButton(
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit),
-                                      SizedBox(width: 8),
-                                      Text('Modifier'),
-                                    ],
-                                  ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Supprimer', style: TextStyle(color: Colors.red)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  _showCiteDialog(cite);
-                                } else if (value == 'delete') {
-                                  _confirmDelete(cite);
-                                }
-                              },
-                            ),
+                          title: Text(
+                            cite.nom,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                        );
-                      },
-                    ),
+                          subtitle:
+                              cite.adresse != null ? Text(cite.adresse!) : null,
+                          trailing: PopupMenuButton(
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.edit),
+                                    const SizedBox(width: 8),
+                                    Text(localizations.modify),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.delete, color: Colors.red),
+                                    const SizedBox(width: 8),
+                                    Text(localizations.delete,
+                                        style:
+                                            const TextStyle(color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _showCiteDialog(cite);
+                              } else if (value == 'delete') {
+                                _confirmDelete(cite);
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showCiteDialog(),
@@ -120,29 +123,32 @@ class _CitesScreenState extends State<CitesScreen> {
   }
 
   void _showCiteDialog([Cite? cite]) {
+    final localizations = context.l10n;
     final nomController = TextEditingController(text: cite?.nom ?? '');
     final adresseController = TextEditingController(text: cite?.adresse ?? '');
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(cite == null ? 'Ajouter une cité' : 'Modifier la cité'),
+        title:
+            Text(cite == null ? localizations.addCity : localizations.editCity),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nomController,
-              decoration: const InputDecoration(
-                labelText: 'Nom de la cité *',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: '${localizations.cityName} *',
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: adresseController,
-              decoration: const InputDecoration(
-                labelText: 'Adresse (optionnel)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText:
+                    '${localizations.address} (${localizations.optional})',
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
@@ -151,11 +157,12 @@ class _CitesScreenState extends State<CitesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: Text(localizations.cancel),
           ),
           ElevatedButton(
-            onPressed: () => _saveCite(cite, nomController.text, adresseController.text),
-            child: Text(cite == null ? 'Ajouter' : 'Modifier'),
+            onPressed: () =>
+                _saveCite(cite, nomController.text, adresseController.text),
+            child: Text(cite == null ? localizations.add : localizations.save),
           ),
         ],
       ),
@@ -163,9 +170,10 @@ class _CitesScreenState extends State<CitesScreen> {
   }
 
   Future<void> _saveCite(Cite? existingCite, String nom, String adresse) async {
+    final localizations = context.l10n;
     if (nom.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le nom de la cité est obligatoire')),
+        SnackBar(content: Text(localizations.cityRequired)),
       );
       return;
     }
@@ -190,38 +198,42 @@ class _CitesScreenState extends State<CitesScreen> {
         await _databaseService.updateCite(citeModifiee);
       }
 
+      if (!mounted) return;
       Navigator.pop(context);
       _loadCites();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(existingCite == null 
-              ? 'Cité ajoutée avec succès' 
-              : 'Cité modifiée avec succès'),
+          content: Text(existingCite == null
+              ? localizations.cityAddedSuccessfully
+              : localizations.cityModifiedSuccessfully),
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
+        SnackBar(content: Text('${localizations.errorSavingCity}: $e')),
       );
     }
   }
 
   void _confirmDelete(Cite cite) {
+    final localizations = context.l10n;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmer la suppression'),
-        content: Text('Êtes-vous sûr de vouloir supprimer la cité "${cite.nom}" ?'),
+        title: Text(localizations.confirmDeletion),
+        content: Text(localizations.confirmDeleteCity(cite.nom)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: Text(localizations.cancel),
           ),
           ElevatedButton(
             onPressed: () => _deleteCite(cite),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Supprimer', style: TextStyle(color: Colors.white)),
+            child: Text(localizations.delete,
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -229,18 +241,20 @@ class _CitesScreenState extends State<CitesScreen> {
   }
 
   Future<void> _deleteCite(Cite cite) async {
+    final localizations = context.l10n;
     try {
       await _databaseService.deleteCite(cite.id!);
+      if (!mounted) return;
       Navigator.pop(context);
       _loadCites();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cité supprimée avec succès')),
+        SnackBar(content: Text(localizations.cityDeletedSuccessfully)),
       );
     } catch (e) {
-      Navigator.pop(context);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la suppression: $e')),
+        SnackBar(content: Text('${localizations.errorDeletingCity}: $e')),
       );
     }
   }

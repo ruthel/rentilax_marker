@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:rentilax_marker/l10n/l10n_extensions.dart';
 import '../models/locataire.dart';
 import '../models/cite.dart';
 import '../services/database_service.dart';
 import '../services/contacts_service.dart';
+import 'locataire_history_screen.dart';
 
 class LocatairesScreen extends StatefulWidget {
   const LocatairesScreen({super.key});
@@ -16,13 +18,24 @@ class LocatairesScreen extends StatefulWidget {
 class _LocatairesScreenState extends State<LocatairesScreen> {
   final DatabaseService _databaseService = DatabaseService();
   List<Locataire> _locataires = [];
+  List<Locataire> _filteredLocataires = [];
   List<Cite> _cites = [];
   bool _isLoading = true;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -33,6 +46,7 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
       setState(() {
         _locataires = locataires;
         _cites = cites;
+        _filterLocataires(); // Apply initial filter
         _isLoading = false;
       });
     } catch (e) {
@@ -45,92 +59,155 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
     }
   }
 
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+      _filterLocataires();
+    });
+  }
+
+  void _filterLocataires() {
+    if (_searchQuery.isEmpty) {
+      _filteredLocataires = _locataires;
+    } else {
+      _filteredLocataires = _locataires.where((locataire) {
+        final query = _searchQuery.toLowerCase();
+        return locataire.nomComplet.toLowerCase().contains(query) ||
+            locataire.numeroLogement.toLowerCase().contains(query) ||
+            _getCiteNom(locataire.citeId).toLowerCase().contains(query);
+      }).toList();
+    }
+  }
+
   String _getCiteNom(int citeId) {
-    final cite = _cites.firstWhere((c) => c.id == citeId, orElse: () => Cite(nom: 'Inconnue', dateCreation: DateTime.now()));
+    final cite = _cites.firstWhere((c) => c.id == citeId,
+        orElse: () => Cite(nom: 'Inconnue', dateCreation: DateTime.now()));
     return cite.nom;
   }
 
   @override
   Widget build(BuildContext context) {
+    final localizations = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestion des Locataires'),
+        title: Text(localizations.locatairesScreenTitle),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _locataires.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Aucun locataire enregistré',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: ListView.builder(
-                      itemCount: _locataires.length,
-                      itemBuilder: (context, index) {
-                        final locataire = _locataires[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: ListTile(
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.person),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              labelText: localizations.searchTenant,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.search),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _filteredLocataires.isEmpty
+                  ? Center(
+                      child: Text(
+                        localizations.noLocataireFound,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: ListView.builder(
+                        itemCount: _filteredLocataires.length,
+                        itemBuilder: (context, index) {
+                          final locataire = _filteredLocataires[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
                             ),
-                            title: Text(
-                              locataire.nomComplet,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Cité: ${_getCiteNom(locataire.citeId)}'),
-                                Text('Logement: ${locataire.numeroLogement}'),
-                                if (locataire.tarifPersonnalise != null)
-                                  Text('Tarif personnalisé: ${locataire.tarifPersonnalise} FCFA'),
-                              ],
-                            ),
-                            isThreeLine: true,
-                            trailing: PopupMenuButton(
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit),
-                                      SizedBox(width: 8),
-                                      Text('Modifier'),
-                                    ],
+                            child: ListTile(
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.person),
+                              ),
+                              title: Text(
+                                locataire.nomComplet,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                      'Cité: ${_getCiteNom(locataire.citeId)}'),
+                                  Text(
+                                      '${localizations.housingNumber}: ${locataire.numeroLogement}'),
+                                  if (locataire.tarifPersonnalise != null)
+                                    Text(
+                                        '${localizations.customRate}: ${locataire.tarifPersonnalise} FCFA'),
+                                ],
+                              ),
+                              isThreeLine: true,
+                              trailing: PopupMenuButton(
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: 'view_history',
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.history),
+                                        const SizedBox(width: 8),
+                                        Text(localizations.viewHistory),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Supprimer', style: TextStyle(color: Colors.red)),
-                                    ],
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.edit),
+                                        const SizedBox(width: 8),
+                                        Text(localizations.modify),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  _showLocataireDialog(locataire);
-                                } else if (value == 'delete') {
-                                  _confirmDelete(locataire);
-                                }
-                              },
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.delete,
+                                            color: Colors.red),
+                                        const SizedBox(width: 8),
+                                        Text(localizations.delete,
+                                            style: const TextStyle(
+                                                color: Colors.red)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                onSelected: (value) {
+                                  if (value == 'view_history') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            LocataireHistoryScreen(
+                                                locataire: locataire),
+                                      ),
+                                    );
+                                  } else if (value == 'edit') {
+                                    _showLocataireDialog(locataire);
+                                  } else if (value == 'delete') {
+                                    _confirmDelete(locataire);
+                                  }
+                                },
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                ),
+        ),
+      ]),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showLocataireDialog(),
         child: const Icon(Icons.add),
@@ -139,22 +216,26 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
   }
 
   void _showLocataireDialog([Locataire? locataire]) {
+    final localizations = context.l10n;
     if (_cites.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez d\'abord créer au moins une cité')),
+        SnackBar(content: Text(localizations.locataireRequired)),
       );
       return;
     }
 
     final nomController = TextEditingController(text: locataire?.nom ?? '');
-    final prenomController = TextEditingController(text: locataire?.prenom ?? '');
-    final telephoneController = TextEditingController(text: locataire?.telephone ?? '');
+    final prenomController =
+        TextEditingController(text: locataire?.prenom ?? '');
+    final telephoneController =
+        TextEditingController(text: locataire?.telephone ?? '');
     final emailController = TextEditingController(text: locataire?.email ?? '');
-    final numeroLogementController = TextEditingController(text: locataire?.numeroLogement ?? '');
+    final numeroLogementController =
+        TextEditingController(text: locataire?.numeroLogement ?? '');
     final tarifController = TextEditingController(
       text: locataire?.tarifPersonnalise?.toString() ?? '',
     );
-    
+
     int selectedCiteId = locataire?.citeId ?? _cites.first.id!;
     DateTime selectedDate = locataire?.dateEntree ?? DateTime.now();
 
@@ -162,20 +243,25 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(locataire == null ? 'Ajouter un locataire' : 'Modifier le locataire'),
+          title: Text(locataire == null
+              ? localizations.addTenant
+              : localizations.editTenant),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextButton.icon(
                   icon: const Icon(Icons.contact_page_outlined),
-                  label: const Text('Choisir depuis les contacts'),
+                  label: Text(localizations.chooseFromContacts),
                   onPressed: () async {
                     final selectedContact = await _selectContact(context);
                     if (selectedContact != null) {
-                      final names = ContactsHelper.parseDisplayName(selectedContact.displayName);
-                      final phone = ContactsHelper.getContactPhone(selectedContact);
-                      final email = ContactsHelper.getContactEmail(selectedContact);
+                      final names = ContactsHelper.parseDisplayName(
+                          selectedContact.displayName);
+                      final phone =
+                          ContactsHelper.getContactPhone(selectedContact);
+                      final email =
+                          ContactsHelper.getContactEmail(selectedContact);
 
                       setDialogState(() {
                         prenomController.text = names[0];
@@ -189,30 +275,32 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: prenomController,
-                  decoration: const InputDecoration(
-                    labelText: 'Prénom *',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: '${localizations.firstName} *',
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: nomController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom *',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: '${localizations.lastName} *',
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   value: selectedCiteId,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Cité *',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
-                  items: _cites.map((cite) => DropdownMenuItem(
-                    value: cite.id,
-                    child: Text(cite.nom),
-                  )).toList(),
+                  items: _cites
+                      .map((cite) => DropdownMenuItem(
+                            value: cite.id,
+                            child: Text(cite.nom),
+                          ))
+                      .toList(),
                   onChanged: (value) {
                     if (value != null) {
                       setDialogState(() => selectedCiteId = value);
@@ -222,42 +310,42 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: numeroLogementController,
-                  decoration: const InputDecoration(
-                    labelText: 'Numéro de logement *',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: '${localizations.housingNumber} *',
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: telephoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Téléphone',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: localizations.phone,
+                    border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: localizations.email,
+                    border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: tarifController,
-                  decoration: const InputDecoration(
-                    labelText: 'Tarif personnalisé (FCFA)',
-                    border: OutlineInputBorder(),
-                    helperText: 'Laisser vide pour utiliser le tarif de base',
+                  decoration: InputDecoration(
+                    labelText: localizations.customRate,
+                    border: const OutlineInputBorder(),
+                    helperText: localizations.leaveEmptyForBaseRate,
                   ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
                 ListTile(
-                  title: const Text('Date d\'entrée'),
+                  title: Text(localizations.entryDate),
                   subtitle: Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
@@ -278,7 +366,7 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
+              child: Text(localizations.cancel),
             ),
             ElevatedButton(
               onPressed: () => _saveLocataire(
@@ -292,7 +380,8 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
                 tarifController.text,
                 selectedDate,
               ),
-              child: Text(locataire == null ? 'Ajouter' : 'Modifier'),
+              child: Text(
+                  locataire == null ? localizations.add : localizations.modify),
             ),
           ],
         ),
@@ -311,9 +400,12 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
     String tarif,
     DateTime dateEntree,
   ) async {
-    if (prenom.trim().isEmpty || nom.trim().isEmpty || numeroLogement.trim().isEmpty) {
+    final localizations = context.l10n;
+    if (prenom.trim().isEmpty ||
+        nom.trim().isEmpty ||
+        numeroLogement.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Les champs prénom, nom et numéro de logement sont obligatoires')),
+        SnackBar(content: Text(localizations.firstNameLastNameHousingRequired)),
       );
       return;
     }
@@ -323,10 +415,28 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
       tarifPersonnalise = double.tryParse(tarif.trim());
       if (tarifPersonnalise == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Le tarif doit être un nombre valide')),
+          SnackBar(content: Text(localizations.invalidRate)),
         );
         return;
       }
+    }
+
+    // Vérifier l'unicité du numéro de logement dans la cité
+    final existingLocataireWithSameNumber =
+        await _databaseService.getLocataireByNumeroLogementAndCite(
+      numeroLogement.trim(),
+      citeId,
+      excludeId: existingLocataire?.id,
+    );
+
+    if (existingLocataireWithSameNumber != null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(localizations.housingNumberExists(numeroLogement.trim()))),
+      );
+      return;
     }
 
     try {
@@ -359,38 +469,42 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
         await _databaseService.updateLocataire(locataireModifie);
       }
 
+      if (!mounted) return;
       Navigator.pop(context);
       _loadData();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(existingLocataire == null 
-              ? 'Locataire ajouté avec succès' 
-              : 'Locataire modifié avec succès'),
+          content: Text(existingLocataire == null
+              ? localizations.tenantAddedSuccessfully
+              : localizations.tenantModifiedSuccessfully),
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
+        SnackBar(content: Text('${localizations.errorSavingTenant}: $e')),
       );
     }
   }
 
   void _confirmDelete(Locataire locataire) {
+    final localizations = context.l10n;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmer la suppression'),
-        content: Text('Êtes-vous sûr de vouloir supprimer le locataire "${locataire.nomComplet}" ?'),
+        title: Text(localizations.confirmDeletion),
+        content: Text(localizations.confirmDeleteTenant(locataire.nomComplet)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: Text(localizations.cancel),
           ),
           ElevatedButton(
             onPressed: () => _deleteLocataire(locataire),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Supprimer', style: TextStyle(color: Colors.white)),
+            child: Text(localizations.delete,
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -398,40 +512,49 @@ class _LocatairesScreenState extends State<LocatairesScreen> {
   }
 
   Future<void> _deleteLocataire(Locataire locataire) async {
+    final localizations = context.l10n;
     try {
       await _databaseService.deleteLocataire(locataire.id!);
+      if (!mounted) return;
       Navigator.pop(context);
       _loadData();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Locataire supprimé avec succès')),
+        SnackBar(content: Text(localizations.tenantDeletedSuccessfully)),
       );
     } catch (e) {
+      if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la suppression: $e')),
+        SnackBar(content: Text('${localizations.errorDeletingTenant}: $e')),
       );
     }
   }
 }
 
 Future<Contact?> _selectContact(BuildContext context) async {
+  final localizations = context.l10n;
   final hasPermission = await ContactsHelper.requestContactsPermission();
   if (!hasPermission) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Permission d'accès aux contacts refusée")),
-    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(localizations.permissionDenied)),
+      );
+    }
     return null;
   }
 
   final contacts = await ContactsHelper.getContacts();
   if (contacts.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aucun contact trouvé')),
-    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(localizations.noContactFound)),
+      );
+    }
     return null;
   }
 
+  if (!context.mounted) return null;
   final selectedContact = await showDialog<Contact>(
     context: context,
     builder: (context) => _ContactSelectionDialog(contacts: contacts),
@@ -446,7 +569,8 @@ class _ContactSelectionDialog extends StatefulWidget {
   const _ContactSelectionDialog({required this.contacts});
 
   @override
-  State<_ContactSelectionDialog> createState() => _ContactSelectionDialogState();
+  State<_ContactSelectionDialog> createState() =>
+      _ContactSelectionDialogState();
 }
 
 class _ContactSelectionDialogState extends State<_ContactSelectionDialog> {
@@ -479,8 +603,9 @@ class _ContactSelectionDialogState extends State<_ContactSelectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = context.l10n;
     return AlertDialog(
-      title: const Text('Sélectionner un contact'),
+      title: Text(localizations.selectContact),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -490,10 +615,10 @@ class _ContactSelectionDialogState extends State<_ContactSelectionDialog> {
               padding: const EdgeInsets.all(8.0),
               child: TextField(
                 controller: _searchController,
-                decoration: const InputDecoration(
-                  labelText: 'Rechercher...',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search),
+                decoration: InputDecoration(
+                  labelText: '${localizations.search}...',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.search),
                 ),
               ),
             ),
@@ -516,7 +641,7 @@ class _ContactSelectionDialogState extends State<_ContactSelectionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
+          child: Text(localizations.cancel),
         ),
       ],
     );
