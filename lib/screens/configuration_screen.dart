@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rentilax_marker/l10n/l10n_extensions.dart';
 import 'package:intl/intl.dart';
-import '../widgets/language_selector.dart';
 import '../models/configuration.dart';
 import '../services/database_service.dart';
 import '../services/theme_service.dart';
 import '../utils/currencies.dart';
 import 'pin_settings_screen.dart';
+import 'units_management_screen.dart';
 
 class ConfigurationScreen extends StatefulWidget {
   const ConfigurationScreen({super.key});
@@ -267,6 +267,48 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                               },
                               icon: const Icon(Icons.lock),
                               label: Text(localizations.managePinCode),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Unités de Mesure',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const UnitsManagementScreen()),
+                                );
+                              },
+                              icon: const Icon(Icons.straighten_rounded),
+                              label: const Text('Gérer les unités de mesure'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Configurez les unités de mesure pour l\'eau, l\'électricité et le gaz',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
                             ),
                           ),
                         ],

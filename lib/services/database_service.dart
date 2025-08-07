@@ -5,6 +5,7 @@ import '../models/locataire.dart';
 import '../models/releve.dart';
 import '../models/configuration.dart';
 import '../models/payment_history.dart';
+import '../models/unit_type.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -23,7 +24,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'rentilax_marker.db');
     return await openDatabase(
       path,
-      version: 4, // Incrémenter la version de la base de données
+      version: 5, // Incrémenter la version de la base de données
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -71,7 +72,11 @@ class DatabaseService {
         commentaire TEXT,
         isPaid INTEGER NOT NULL DEFAULT 0,
         paymentDate TEXT,
-        FOREIGN KEY (locataireId) REFERENCES locataires (id)
+        paidAmount REAL NOT NULL DEFAULT 0.0,
+        unitId INTEGER,
+        unitType TEXT NOT NULL DEFAULT 'water',
+        FOREIGN KEY (locataireId) REFERENCES locataires (id),
+        FOREIGN KEY (unitId) REFERENCES consumption_units (id)
       )
     ''');
 
@@ -81,7 +86,23 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tarifBase REAL NOT NULL,
         devise TEXT NOT NULL DEFAULT 'FCFA',
+        default_unit_id INTEGER,
+        default_unit_type TEXT NOT NULL DEFAULT 'water',
         dateModification TEXT NOT NULL
+      )
+    ''');
+
+    // Table des unités de consommation
+    await db.execute('''
+      CREATE TABLE consumption_units (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        symbol TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        conversion_factor REAL NOT NULL DEFAULT 1.0,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        date_creation INTEGER NOT NULL
       )
     ''');
 
@@ -89,6 +110,7 @@ class DatabaseService {
     await db.insert('configuration', {
       'tarifBase': 100.0,
       'devise': 'FCFA',
+      'default_unit_type': 'water',
       'dateModification': DateTime.now().toIso8601String(),
     });
   }
@@ -109,6 +131,30 @@ class DatabaseService {
     }
     if (oldVersion < 4) {
       await _createNewTables(db);
+    }
+    if (oldVersion < 5) {
+      // Ajouter les colonnes pour les unités
+      await db.execute('ALTER TABLE releves ADD COLUMN unitId INTEGER');
+      await db.execute(
+          'ALTER TABLE releves ADD COLUMN unitType TEXT NOT NULL DEFAULT "water"');
+      await db.execute(
+          'ALTER TABLE configuration ADD COLUMN default_unit_id INTEGER');
+      await db.execute(
+          'ALTER TABLE configuration ADD COLUMN default_unit_type TEXT NOT NULL DEFAULT "water"');
+
+      // Créer la table des unités de consommation
+      await db.execute('''
+        CREATE TABLE consumption_units (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          symbol TEXT NOT NULL,
+          full_name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          conversion_factor REAL NOT NULL DEFAULT 1.0,
+          is_default INTEGER NOT NULL DEFAULT 0,
+          date_creation INTEGER NOT NULL
+        )
+      ''');
     }
   }
 
@@ -443,5 +489,100 @@ class DatabaseService {
     } catch (e) {
       // La colonne existe déjà
     }
+  }
+
+  // CRUD pour les unités de consommation
+  Future<ConsumptionUnit> insertConsumptionUnit(ConsumptionUnit unit) async {
+    final db = await database;
+    final id = await db.insert('consumption_units', unit.toMap());
+    return unit.copyWith(id: id);
+  }
+
+  Future<List<ConsumptionUnit>> getConsumptionUnits() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'consumption_units',
+      orderBy: 'type, name',
+    );
+    return List.generate(maps.length, (i) => ConsumptionUnit.fromMap(maps[i]));
+  }
+
+  Future<List<ConsumptionUnit>> getConsumptionUnitsByType(UnitType type) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'consumption_units',
+      where: 'type = ?',
+      whereArgs: [type.id],
+      orderBy: 'name',
+    );
+    return List.generate(maps.length, (i) => ConsumptionUnit.fromMap(maps[i]));
+  }
+
+  Future<ConsumptionUnit?> getConsumptionUnitById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'consumption_units',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return maps.isNotEmpty ? ConsumptionUnit.fromMap(maps.first) : null;
+  }
+
+  Future<void> updateConsumptionUnit(ConsumptionUnit unit) async {
+    final db = await database;
+    await db.update(
+      'consumption_units',
+      unit.toMap(),
+      where: 'id = ?',
+      whereArgs: [unit.id],
+    );
+  }
+
+  Future<void> deleteConsumptionUnit(int id) async {
+    final db = await database;
+    await db.delete('consumption_units', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<ConsumptionUnit?> getDefaultUnitForType(UnitType type) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'consumption_units',
+      where: 'type = ? AND is_default = 1',
+      whereArgs: [type.id],
+      limit: 1,
+    );
+    return maps.isNotEmpty ? ConsumptionUnit.fromMap(maps.first) : null;
+  }
+
+  // Méthodes pour les statistiques d'utilisation des unités
+  Future<int> getRelevesCountByUnitType(UnitType type) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM releves WHERE unitType = ?',
+      [type.id],
+    );
+    return result.first['count'] as int;
+  }
+
+  Future<int> getRelevesCountByUnitId(int unitId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM releves WHERE unitId = ?',
+      [unitId],
+    );
+    return result.first['count'] as int;
+  }
+
+  // Méthodes pour la recherche d'unités
+  Future<List<ConsumptionUnit>> searchConsumptionUnits(String query) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'consumption_units',
+      where: 'name LIKE ? OR symbol LIKE ? OR full_name LIKE ?',
+      whereArgs: ['%$query%', '%$query%', '%$query%'],
+      orderBy: 'type, name',
+    );
+    return List.generate(maps.length, (i) => ConsumptionUnit.fromMap(maps[i]));
   }
 }

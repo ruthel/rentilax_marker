@@ -1,3 +1,5 @@
+import 'unit_type.dart';
+
 class Releve {
   final int? id;
   final int locataireId;
@@ -12,6 +14,8 @@ class Releve {
   final bool isPaid;
   final DateTime? paymentDate;
   final double paidAmount;
+  final int? unitId;
+  final UnitType unitType;
 
   Releve({
     this.id,
@@ -25,6 +29,8 @@ class Releve {
     this.isPaid = false,
     this.paymentDate,
     this.paidAmount = 0.0,
+    this.unitId,
+    this.unitType = UnitType.water,
   })  : consommation = nouvelIndex - ancienIndex,
         montant = (nouvelIndex - ancienIndex) * tarif,
         moisReleve = moisReleve ?? dateReleve;
@@ -44,6 +50,8 @@ class Releve {
       'isPaid': isPaid ? 1 : 0,
       'paymentDate': paymentDate?.toIso8601String(),
       'paidAmount': paidAmount,
+      'unitId': unitId,
+      'unitType': unitType.id,
     };
   }
 
@@ -64,6 +72,8 @@ class Releve {
           ? DateTime.parse(map['paymentDate'])
           : null,
       paidAmount: map['paidAmount']?.toDouble() ?? 0.0,
+      unitId: map['unitId'],
+      unitType: UnitType.fromId(map['unitType'] ?? 'water'),
     );
   }
 

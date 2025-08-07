@@ -27,7 +27,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get noRelevesRecorded => 'Aucun relevé enregistré';
 
   @override
-  String get totalConsumption => 'Consommation Totale';
+  String get totalConsumption => 'Fasture Totale';
 
   @override
   String get totalAmount => 'Montant Total';
@@ -507,10 +507,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get search => 'Rechercher...';
 
   @override
-  String get totalPaidAmount => 'Montant Total Payé';
+  String get totalPaidAmount => 'Total Payé';
 
   @override
-  String get totalUnpaidAmount => 'Montant Total Impayé';
+  String get totalUnpaidAmount => 'Total Impayé';
 
   @override
   String get units => 'unités';

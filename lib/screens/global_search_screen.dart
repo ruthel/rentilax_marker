@@ -363,7 +363,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                '${DateFormat('MMMM yyyy', 'fr_FR').format(releve.moisReleve)}'),
+                DateFormat('MMMM yyyy', 'fr_FR').format(releve.moisReleve)),
             if (releve.commentaire != null)
               Text(
                 '💬 ${releve.commentaire}',

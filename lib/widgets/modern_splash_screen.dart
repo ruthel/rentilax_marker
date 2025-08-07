@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_logo.dart';
 
 class ModernSplashScreen extends StatefulWidget {
   final Widget child;
@@ -139,23 +140,22 @@ class _ModernSplashScreenState extends State<ModernSplashScreen>
                     scale: _scaleAnimation.value,
                     child: widget.logo ??
                         Container(
-                          width: 120,
-                          height: 120,
+                          width: 140,
+                          height: 140,
                           decoration: BoxDecoration(
-                            color: colorScheme.primary,
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(30),
                             boxShadow: [
                               BoxShadow(
-                                color: colorScheme.primary.withOpacity(0.3),
+                                color: colorScheme.primary.withOpacity(0.2),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
                             ],
                           ),
-                          child: Icon(
-                            Icons.water_drop_rounded,
-                            size: 60,
-                            color: colorScheme.onPrimary,
+                          child: const Padding(
+                            padding: EdgeInsets.all(20),
+                            child: AppLogo(size: 100),
                           ),
                         ),
                   );

@@ -13,10 +13,13 @@ import '../services/database_service.dart';
 import '../services/pdf_service.dart';
 import '../models/locataire.dart';
 import '../models/cite.dart';
+import '../models/unit_type.dart';
+import '../services/unit_service.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/modern_card.dart';
 import '../widgets/modern_stats_card.dart';
 import '../widgets/modern_button.dart';
+import '../widgets/app_logo.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,9 +30,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final DatabaseService _databaseService = DatabaseService();
+  final UnitService _unitService = UnitService();
   List<Releve> _monthlyReleves = [];
   List<Locataire> _allLocataires = [];
   List<Cite> _allCites = [];
+  List<ConsumptionUnit> _availableUnits = [];
   Configuration? _configuration;
   bool _isLoadingStats = true;
 
@@ -63,11 +68,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final locataires = await _databaseService.getLocataires();
       final cites = await _databaseService.getCites();
       final config = await _databaseService.getConfiguration();
+      final units = await _unitService.getAllUnits();
       setState(() {
         _monthlyReleves = releves;
         _allLocataires = locataires;
         _allCites = cites;
         _configuration = config;
+        _availableUnits = units;
         _isLoadingStats = false;
       });
     } catch (e) {
@@ -86,8 +93,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    double totalConsommation =
-        _monthlyReleves.fold(0.0, (sum, item) => sum + item.consommation);
+    // Calcul des totaux pour les statistiques
     double totalMontant =
         _monthlyReleves.fold(0.0, (sum, item) => sum + item.montant);
     double totalPaidAmount = _monthlyReleves
@@ -101,6 +107,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       appBar: ModernAppBar(
         title: localizations.appTitle,
         showBackButton: false,
+        leading: const Padding(
+          padding: EdgeInsets.all(8.0),
+          child: AppLogoIcon(size: 32),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded),
@@ -217,17 +227,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             Expanded(
                               child: ModernStatsCard(
                                 title: localizations.totalConsumption,
-                                value:
-                                    '${totalConsommation.toStringAsFixed(1)}',
-                                subtitle: 'unités',
-                                icon: Icons.water_drop_rounded,
-                                iconColor: colorScheme.primary,
+                                value: _getFormattedTotalConsumption(),
+                                subtitle: _getConsumptionSubtitle(),
+                                icon: _getConsumptionIcon(),
+                                iconColor: _getConsumptionColor(),
                               ),
                             ),
                             Expanded(
                               child: ModernStatsCard(
                                 title: localizations.totalAmount,
-                                value: '${totalMontant.toStringAsFixed(0)}',
+                                value: totalMontant.toStringAsFixed(0),
                                 subtitle: _configuration?.devise ?? 'FCFA',
                                 icon: Icons.account_balance_wallet_rounded,
                                 iconColor: colorScheme.secondary,
@@ -240,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             Expanded(
                               child: ModernStatsCard(
                                 title: localizations.totalPaidAmount,
-                                value: '${totalPaidAmount.toStringAsFixed(0)}',
+                                value: totalPaidAmount.toStringAsFixed(0),
                                 subtitle: _configuration?.devise ?? 'FCFA',
                                 icon: Icons.check_circle_rounded,
                                 iconColor: Colors.green,
@@ -254,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               child: ModernStatsCard(
                                 title: localizations.totalUnpaidAmount,
                                 value:
-                                    '${totalUnpaidAmount.toStringAsFixed(0)}',
+                                    totalUnpaidAmount.toStringAsFixed(0),
                                 subtitle: _configuration?.devise ?? 'FCFA',
                                 icon: Icons.pending_rounded,
                                 iconColor: Colors.orange,
@@ -305,8 +314,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
                 childAspectRatio: 1.1,
                 children: [
                   _buildModernMenuCard(
@@ -368,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -404,16 +413,124 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
+          Flexible(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _getFormattedTotalConsumption() {
+    if (_monthlyReleves.isEmpty) return '0';
+
+    // Grouper par type d'unité
+    final consumptionByType = <UnitType, double>{};
+
+    for (final releve in _monthlyReleves) {
+      final unitType = releve.unitType;
+      consumptionByType[unitType] =
+          (consumptionByType[unitType] ?? 0) + releve.consommation;
+    }
+
+    // Si un seul type, afficher la valeur directe
+    if (consumptionByType.length == 1) {
+      final entry = consumptionByType.entries.first;
+      return entry.value.toStringAsFixed(1);
+    }
+
+    // Si plusieurs types, afficher le total général
+    final total =
+        consumptionByType.values.fold(0.0, (sum, value) => sum + value);
+    return total.toStringAsFixed(1);
+  }
+
+  String _getConsumptionSubtitle() {
+    if (_monthlyReleves.isEmpty) return 'unités';
+
+    // Grouper par type d'unité
+    final consumptionByType = <UnitType, double>{};
+
+    for (final releve in _monthlyReleves) {
+      final unitType = releve.unitType;
+      consumptionByType[unitType] =
+          (consumptionByType[unitType] ?? 0) + releve.consommation;
+    }
+
+    // Si un seul type, afficher l'unité appropriée
+    if (consumptionByType.length == 1) {
+      final unitType = consumptionByType.keys.first;
+      return _getUnitSymbolByType(unitType);
+    }
+
+    // Si plusieurs types, afficher un résumé
+    final types = consumptionByType.keys.map((type) => type.name).join(', ');
+    return types;
+  }
+
+  IconData _getConsumptionIcon() {
+    if (_monthlyReleves.isEmpty) return Icons.water_drop_rounded;
+
+    // Déterminer le type d'unité le plus utilisé
+    final typeCount = <UnitType, int>{};
+    for (final releve in _monthlyReleves) {
+      typeCount[releve.unitType] = (typeCount[releve.unitType] ?? 0) + 1;
+    }
+
+    if (typeCount.isEmpty) return Icons.water_drop_rounded;
+
+    final mostUsedType =
+        typeCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+
+    switch (mostUsedType) {
+      case UnitType.water:
+        return Icons.water_drop_rounded;
+      case UnitType.electricity:
+        return Icons.electrical_services_rounded;
+      case UnitType.gas:
+        return Icons.local_fire_department_rounded;
+    }
+  }
+
+  Color _getConsumptionColor() {
+    if (_monthlyReleves.isEmpty) return Theme.of(context).colorScheme.primary;
+
+    // Déterminer le type d'unité le plus utilisé
+    final typeCount = <UnitType, int>{};
+    for (final releve in _monthlyReleves) {
+      typeCount[releve.unitType] = (typeCount[releve.unitType] ?? 0) + 1;
+    }
+
+    if (typeCount.isEmpty) return Theme.of(context).colorScheme.primary;
+
+    final mostUsedType =
+        typeCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+
+    switch (mostUsedType) {
+      case UnitType.water:
+        return Colors.blue;
+      case UnitType.electricity:
+        return Colors.amber;
+      case UnitType.gas:
+        return Colors.orange;
+    }
+  }
+
+  String _getUnitSymbolByType(UnitType type) {
+    switch (type) {
+      case UnitType.water:
+        return 'm³';
+      case UnitType.electricity:
+        return 'kWh';
+      case UnitType.gas:
+        return 'm³';
+    }
   }
 }

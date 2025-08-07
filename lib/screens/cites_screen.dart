@@ -130,6 +130,7 @@ class _CitesScreenState extends State<CitesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        insetPadding: const EdgeInsets.all(10),
         title:
             Text(cite == null ? localizations.addCity : localizations.editCity),
         content: Column(
@@ -222,6 +223,7 @@ class _CitesScreenState extends State<CitesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        insetPadding: const EdgeInsets.all(16),
         title: Text(localizations.confirmDeletion),
         content: Text(localizations.confirmDeleteCity(cite.nom)),
         actions: [

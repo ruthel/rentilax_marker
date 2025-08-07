@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
-import '../models/locataire.dart';
 import '../models/releve.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';

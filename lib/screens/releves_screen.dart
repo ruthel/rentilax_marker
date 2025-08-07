@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:rentilax_marker/l10n/l10n_extensions.dart';
+import 'package:rentilax_marker/models/unit_type.dart';
+import 'package:rentilax_marker/services/unit_service.dart';
 import '../models/cite.dart';
 import '../models/releve.dart';
 import '../models/locataire.dart';
@@ -17,10 +19,12 @@ class RelevesScreen extends StatefulWidget {
 
 class _RelevesScreenState extends State<RelevesScreen> {
   final DatabaseService _databaseService = DatabaseService();
+  final UnitService _unitService = UnitService();
   List<Releve> _allReleves = []; // All relevés loaded from DB
   List<Releve> _filteredReleves = []; // Relevés displayed after filtering
   List<Locataire> _locataires = [];
   List<Cite> _cites = []; // Add cites for filtering
+  List<ConsumptionUnit> _availableUnits = [];
   Configuration? _configuration;
   bool _isLoading = true;
 
@@ -51,11 +55,13 @@ class _RelevesScreenState extends State<RelevesScreen> {
       final locataires = await _databaseService.getLocataires();
       final cites = await _databaseService.getCites();
       final config = await _databaseService.getConfiguration();
+      final units = await _unitService.getAllUnits();
       setState(() {
         _allReleves = releves;
         _locataires = locataires;
         _cites = cites;
         _configuration = config;
+        _availableUnits = units;
         _isLoading = false;
       });
       _filterReleves(); // Apply initial filter
@@ -154,89 +160,93 @@ class _RelevesScreenState extends State<RelevesScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<bool?>(
-                  value: _filterIsPaid,
-                  decoration: InputDecoration(
-                    labelText: localizations.paymentStatusFilter,
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                        value: null, child: Text(localizations.all)),
-                    DropdownMenuItem(
-                        value: true, child: Text(localizations.paid)),
-                    DropdownMenuItem(
-                        value: false, child: Text(localizations.unpaid)),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _filterIsPaid = value;
-                      _filterReleves();
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<int?>(
-                  value: _filterCiteId,
-                  decoration: InputDecoration(
-                    labelText: localizations.cityFilter,
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                        value: null, child: Text(localizations.allCities)),
-                    ..._cites.map((cite) => DropdownMenuItem(
-                          value: cite.id,
-                          child: Text(cite.nom),
-                        )),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _filterCiteId = value;
-                      _filterReleves();
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ListTile(
-                  title: Text(localizations.monthFilter),
-                  subtitle: Text(_filterMonth == null
-                      ? localizations.allMonths
-                      : DateFormat('MMMM yyyy', localizations.localeName)
-                          .format(_filterMonth!)),
-                  trailing: const Icon(Icons.calendar_month),
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: _filterMonth ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (date != null) {
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 150, // Fixed width for payment status filter
+                  child: DropdownButtonFormField<bool?>(
+                    value: _filterIsPaid,
+                    decoration: InputDecoration(
+                      labelText: localizations.paymentStatusFilter,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                          value: null, child: Text(localizations.all)),
+                      DropdownMenuItem(
+                          value: true, child: Text(localizations.paid)),
+                      DropdownMenuItem(
+                          value: false, child: Text(localizations.unpaid)),
+                    ],
+                    onChanged: (value) {
                       setState(() {
-                        _filterMonth = DateTime(date.year, date.month, 1);
+                        _filterIsPaid = value;
                         _filterReleves();
                       });
-                    } else {
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 150, // Fixed width for city filter
+                  child: DropdownButtonFormField<int?>(
+                    value: _filterCiteId,
+                    decoration: InputDecoration(
+                      labelText: localizations.cityFilter,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                          value: null, child: Text(localizations.allCities)),
+                      ..._cites.map((cite) => DropdownMenuItem(
+                            value: cite.id,
+                            child: Flexible(child: Text(cite.nom)),
+                          )),
+                    ],
+                    onChanged: (value) {
                       setState(() {
-                        _filterMonth = null;
+                        _filterCiteId = value;
                         _filterReleves();
                       });
-                    }
-                  },
+                    },
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 150, // Fixed width for month filter
+                  child: ListTile(
+                    title: Text(localizations.monthFilter),
+                    subtitle: Text(_filterMonth == null
+                        ? localizations.allMonths
+                        : DateFormat('MMMM yyyy', localizations.localeName)
+                            .format(_filterMonth!)),
+                    trailing: const Icon(Icons.calendar_month),
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _filterMonth ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (date != null) {
+                        setState(() {
+                          _filterMonth = DateTime(date.year, date.month, 1);
+                          _filterReleves();
+                        });
+                      } else {
+                        setState(() {
+                          _filterMonth = null;
+                          _filterReleves();
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -277,7 +287,7 @@ class _RelevesScreenState extends State<RelevesScreen> {
                                   Text(
                                       '${localizations.creationDate}: ${DateFormat('dd/MM/yyyy').format(releve.dateReleve)}'),
                                   Text(
-                                      '${localizations.consumption}: ${releve.consommation.toStringAsFixed(2)} ${localizations.units}'),
+                                      '${localizations.consumption}: ${_formatConsumptionWithUnit(releve)}'),
                                   Text(
                                       '${localizations.amount}: ${releve.montant.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}'),
                                   if (releve.isPartiallyPaid)
@@ -438,7 +448,7 @@ class _RelevesScreenState extends State<RelevesScreen> {
             Text(
                 '${localizations.newIndex}: ${releve.nouvelIndex.toStringAsFixed(2)}'),
             Text(
-                '${localizations.consumption}: ${releve.consommation.toStringAsFixed(2)} ${localizations.units}'),
+                '${localizations.consumption}: ${_formatConsumptionWithUnit(releve)}'),
             const SizedBox(height: 8),
             Text(
                 '${localizations.appliedRate}: ${releve.tarif.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}/${localizations.unit}'),
@@ -493,6 +503,16 @@ class _RelevesScreenState extends State<RelevesScreen> {
     DateTime selectedDate = releve?.dateReleve ?? DateTime.now();
     DateTime selectedMoisReleve = releve?.moisReleve ?? DateTime.now();
 
+    // Sélection d'unité
+    ConsumptionUnit? selectedUnit;
+    if (releve?.unitId != null) {
+      selectedUnit = await _unitService.getUnitById(releve!.unitId!);
+    } else {
+      // Utiliser l'unité par défaut selon la configuration
+      selectedUnit = await _unitService.getDefaultUnitForType(
+          _configuration?.defaultUnitType ?? UnitType.water);
+    }
+
     // Si c'est un nouveau relevé, récupérer le dernier index du locataire
     if (releve == null) {
       final dernierReleve =
@@ -513,108 +533,169 @@ class _RelevesScreenState extends State<RelevesScreen> {
           title: Text(releve == null
               ? localizations.newReading
               : localizations.modifyReading),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<int>(
-                  value: selectedLocataireId,
-                  decoration: InputDecoration(
-                    labelText: '${localizations.tenant} *',
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: _locataires
-                      .map((locataire) => DropdownMenuItem(
-                            value: locataire.id,
-                            child: Text(locataire.nomComplet),
-                          ))
-                      .toList(),
-                  onChanged: releve == null
-                      ? (value) async {
-                          if (value != null) {
-                            setDialogState(() => selectedLocataireId = value);
-                            // Récupérer le dernier index pour ce locataire
-                            final dernierReleve =
-                                await _databaseService.getDernierReleve(value);
-                            if (dernierReleve != null) {
-                              ancienIndexController.text =
-                                  dernierReleve.nouvelIndex.toString();
-                            } else {
-                              ancienIndexController.text = '0';
+          content: SizedBox(
+              width: double.maxFinite,
+              height: MediaQuery.of(context).size.height *
+                  0.6, // Limit height to 60% of screen height
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      value: selectedLocataireId,
+                      decoration: InputDecoration(
+                        labelText: '${localizations.tenant} *',
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: _locataires
+                          .map((locataire) => DropdownMenuItem(
+                                value: locataire.id,
+                                child: Text(locataire.nomComplet),
+                              ))
+                          .toList(),
+                      onChanged: releve == null
+                          ? (value) async {
+                              if (value != null) {
+                                setDialogState(
+                                    () => selectedLocataireId = value);
+                                // Récupérer le dernier index pour ce locataire
+                                final dernierReleve = await _databaseService
+                                    .getDernierReleve(value);
+                                if (dernierReleve != null) {
+                                  ancienIndexController.text =
+                                      dernierReleve.nouvelIndex.toString();
+                                } else {
+                                  ancienIndexController.text = '0';
+                                }
+                              }
                             }
-                          }
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: ancienIndexController,
+                      decoration: InputDecoration(
+                        labelText: '${localizations.oldIndex} *',
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      readOnly: false,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nouvelIndexController,
+                      decoration: InputDecoration(
+                        labelText: '${localizations.newIndex} *',
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<ConsumptionUnit>(
+                      value: selectedUnit,
+                      decoration: const InputDecoration(
+                        labelText: 'Unité de mesure *',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _availableUnits
+                          .map((unit) => DropdownMenuItem(
+                                value: unit,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: _getUnitTypeColor(unit.type)
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        unit.symbol,
+                                        style: TextStyle(
+                                          color: _getUnitTypeColor(unit.type),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(unit.name),
+                                          Text(
+                                            unit.type.name,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setDialogState(() => selectedUnit = value);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: Text('${localizations.readingMonth} *'),
+                      subtitle: Text(
+                          DateFormat('MMMM yyyy', localizations.localeName)
+                              .format(selectedMoisReleve)),
+                      trailing: const Icon(Icons.calendar_month),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedMoisReleve,
+                          firstDate: DateTime(2000),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (date != null) {
+                          setDialogState(() => selectedMoisReleve =
+                              DateTime(date.year, date.month, 1));
                         }
-                      : null,
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: Text(localizations.creationDate),
+                      subtitle:
+                          Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                        );
+                        if (date != null) {
+                          setDialogState(() => selectedDate = date);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: commentaireController,
+                      decoration: InputDecoration(
+                        labelText:
+                            '${localizations.comment} (${localizations.optional})',
+                        border: const OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: ancienIndexController,
-                  decoration: InputDecoration(
-                    labelText: '${localizations.oldIndex} *',
-                    border: const OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  readOnly: false,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nouvelIndexController,
-                  decoration: InputDecoration(
-                    labelText: '${localizations.newIndex} *',
-                    border: const OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  title: Text('${localizations.readingMonth} *'),
-                  subtitle: Text(
-                      DateFormat('MMMM yyyy', localizations.localeName)
-                          .format(selectedMoisReleve)),
-                  trailing: const Icon(Icons.calendar_month),
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: selectedMoisReleve,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (date != null) {
-                      setDialogState(() => selectedMoisReleve =
-                          DateTime(date.year, date.month, 1));
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  title: Text(localizations.creationDate),
-                  subtitle: Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (date != null) {
-                      setDialogState(() => selectedDate = date);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: commentaireController,
-                  decoration: InputDecoration(
-                    labelText:
-                        '${localizations.comment} (${localizations.optional})',
-                    border: const OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
-                ),
-              ],
-            ),
-          ),
+              )),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -629,6 +710,7 @@ class _RelevesScreenState extends State<RelevesScreen> {
                 selectedDate,
                 selectedMoisReleve,
                 commentaireController.text,
+                selectedUnit,
               ),
               child: Text(
                   releve == null ? localizations.add : localizations.modify),
@@ -647,6 +729,7 @@ class _RelevesScreenState extends State<RelevesScreen> {
     DateTime dateReleve,
     DateTime moisReleve,
     String commentaire,
+    ConsumptionUnit? selectedUnit,
   ) async {
     final localizations = context.l10n;
     if (ancienIndex.trim().isEmpty || nouvelIndex.trim().isEmpty) {
@@ -708,6 +791,8 @@ class _RelevesScreenState extends State<RelevesScreen> {
           dateReleve: dateReleve,
           moisReleve: moisReleve,
           commentaire: commentaire.trim().isEmpty ? null : commentaire.trim(),
+          unitId: selectedUnit?.id,
+          unitType: selectedUnit?.type ?? UnitType.water,
         );
         await _databaseService.insertReleve(nouveauReleve);
       } else {
@@ -745,6 +830,9 @@ class _RelevesScreenState extends State<RelevesScreen> {
           isPaid: existingReleve.isPaid, // Conserver le statut de paiement
           paymentDate:
               existingReleve.paymentDate, // Conserver la date de paiement
+          paidAmount: existingReleve.paidAmount, // Conserver le montant payé
+          unitId: selectedUnit?.id,
+          unitType: selectedUnit?.type ?? existingReleve.unitType,
         );
         await _databaseService.updateReleve(releveModifie);
       }
@@ -859,6 +947,40 @@ class _RelevesScreenState extends State<RelevesScreen> {
     // Recharger les données si un paiement a été effectué
     if (result == true) {
       _loadData();
+    }
+  }
+
+  Color _getUnitTypeColor(UnitType type) {
+    switch (type) {
+      case UnitType.water:
+        return Colors.blue;
+      case UnitType.electricity:
+        return Colors.amber;
+      case UnitType.gas:
+        return Colors.orange;
+    }
+  }
+
+  String _formatConsumptionWithUnit(Releve releve) {
+    if (releve.unitId != null) {
+      final unit =
+          _availableUnits.where((u) => u.id == releve.unitId).firstOrNull;
+      if (unit != null) {
+        return '${releve.consommation.toStringAsFixed(2)} ${unit.symbol}';
+      }
+    }
+    // Fallback vers l'unité par type
+    return '${releve.consommation.toStringAsFixed(2)} ${_getUnitSymbolByType(releve.unitType)}';
+  }
+
+  String _getUnitSymbolByType(UnitType type) {
+    switch (type) {
+      case UnitType.water:
+        return 'm³';
+      case UnitType.electricity:
+        return 'kWh';
+      case UnitType.gas:
+        return 'm³';
     }
   }
 }

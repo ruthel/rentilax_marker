@@ -8,7 +8,7 @@
   "configurationScreenTitle": "Configuration",
   
   "noRelevesRecorded": "Aucun relevé enregistré",
-  "totalConsumption": "Consommation Totale",
+  "totalConsumption": "Fasture Totale",
   "totalAmount": "Montant Total",
   "noReadingsForThisMonth": "Aucun relevé pour ce mois.",
   "printMonthlyReport": "Imprimer le Rapport Mensuel",
@@ -178,8 +178,8 @@
   "selectContact": "Sélectionner un contact",
   "search": "Rechercher...",
   
-  "totalPaidAmount": "Montant Total Payé",
-  "totalUnpaidAmount": "Montant Total Impayé",
+  "totalPaidAmount": "Total Payé",
+  "totalUnpaidAmount": "Total Impayé",
   "units": "unités",
   "unit": "unité",
   "optional": "optionnel",
