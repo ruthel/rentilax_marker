@@ -4,7 +4,6 @@ import '../models/releve.dart';
 import '../models/locataire.dart';
 import '../models/payment_history.dart';
 import '../services/payment_service.dart';
-import '../services/database_service.dart';
 
 class PaymentManagementScreen extends StatefulWidget {
   final Releve releve;
@@ -22,7 +21,6 @@ class PaymentManagementScreen extends StatefulWidget {
 }
 
 class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
-  final DatabaseService _databaseService = DatabaseService();
   List<PaymentHistory> _paymentHistory = [];
   bool _isLoading = true;
 
@@ -301,7 +299,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: Colors.green.withOpacity(0.2),
+                        backgroundColor: Colors.green.withValues(alpha: 0.2),
                         child: const Icon(Icons.check, color: Colors.green),
                       ),
                       title: Text('${payment.amount.toStringAsFixed(2)} FCFA'),

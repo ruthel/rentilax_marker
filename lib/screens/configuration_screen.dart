@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rentilax_marker/l10n/l10n_extensions.dart';
 import 'package:intl/intl.dart';
+import '../widgets/language_selector.dart';
 import '../models/configuration.dart';
 import '../services/database_service.dart';
 import '../services/theme_service.dart';

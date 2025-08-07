@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:rentilax_marker/l10n/l10n_extensions.dart';
-import 'package:rentilax_marker/l10n/l10n_extensions.dart';
+import 'global_search_screen.dart';
 import 'cites_screen.dart';
 import 'locataires_screen.dart';
 import 'releves_screen.dart';
@@ -94,6 +94,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         title: Text(localizations.appTitle),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GlobalSearchScreen(),
+                ),
+              );
+            },
+            tooltip: 'Recherche globale',
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadMonthlyStats,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -9,10 +10,17 @@ import 'screens/home_screen.dart';
 import 'screens/pin_entry_screen.dart';
 import 'services/pin_service.dart';
 import 'services/theme_service.dart';
+import 'services/language_service.dart';
+import 'services/enhanced_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialisation des services
   await initializeDateFormatting('fr_FR', null);
+  tz.initializeTimeZones();
+  await EnhancedNotificationService.initialize();
+
   runApp(const RentilaxMarkerApp());
 }
 
@@ -21,10 +29,13 @@ class RentilaxMarkerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ThemeService(),
-      child: Consumer<ThemeService>(
-        builder: (context, themeService, child) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeService()),
+        ChangeNotifierProvider(create: (_) => LanguageService()),
+      ],
+      child: Consumer2<ThemeService, LanguageService>(
+        builder: (context, themeService, languageService, child) {
           return MaterialApp(
             title: 'Rentilax Marker',
             localizationsDelegates: const [
@@ -37,6 +48,7 @@ class RentilaxMarkerApp extends StatelessWidget {
               Locale('en'), // English
               Locale('fr'), // French
             ],
+            locale: languageService.currentLocale,
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
                 seedColor: Colors.blue,
