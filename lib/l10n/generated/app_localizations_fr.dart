@@ -9,7 +9,7 @@ class AppLocalizationsFr extends AppLocalizations {
   AppLocalizationsFr([String locale = 'fr']) : super(locale);
 
   @override
-  String get appTitle => 'Rentilax Marker';
+  String get appTitle => 'Rentilax Tracker';
 
   @override
   String get citesScreenTitle => 'Gestion des Cités';
@@ -357,7 +357,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get about => 'À propos';
 
   @override
-  String get appVersion => 'Rentilax Marker v1.0.0';
+  String get appVersion => 'Rentilax Tracker v1.0.0';
 
   @override
   String get appDescription =>
@@ -559,4 +559,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String totalReadings(int count) {
     return 'Total des relevés : $count';
   }
+
+  @override
+  String get monthlyStatistics => 'Statistiques du mois';
+
+  @override
+  String get mainMenu => 'Menu principal';
 }

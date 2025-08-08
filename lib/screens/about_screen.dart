@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rentilax_marker/l10n/l10n_extensions.dart';
+import 'package:rentilax_tracker/l10n/l10n_extensions.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/modern_card.dart';
 import '../widgets/app_logo.dart';
@@ -123,7 +123,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Rentilax Marker est une application moderne de gestion des locataires et de leurs relevés de consommation. Elle permet de suivre facilement les consommations d\'eau, d\'électricité et de gaz, de gérer les paiements et de générer des rapports détaillés.',
+                    'Rentilax Tracker est une application moderne de gestion des locataires et de leurs relevés de consommation. Elle permet de suivre facilement les consommations d\'eau, d\'électricité et de gaz, de gérer les paiements et de générer des rapports détaillés.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       height: 1.6,
@@ -213,7 +213,7 @@ class AboutScreen extends StatelessWidget {
                   const AppLogoIcon(size: 48),
                   const SizedBox(height: 16),
                   Text(
-                    '© 2025 Rentilax Marker',
+                    '© 2025 Rentilax Tracker',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: colorScheme.onSurface,

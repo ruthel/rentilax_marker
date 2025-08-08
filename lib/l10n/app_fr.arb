@@ -1,6 +1,6 @@
 {
   "@@locale": "fr",
-  "appTitle": "Rentilax Marker",
+  "appTitle": "Rentilax Tracker",
   
   "citesScreenTitle": "Gestion des Cités",
   "locatairesScreenTitle": "Gestion des Locataires",
@@ -125,7 +125,7 @@
   "currentRate": "Tarif actuel",
   "lastModification": "Dernière modification",
   "about": "À propos",
-  "appVersion": "Rentilax Marker v1.0.0",
+  "appVersion": "Rentilax Tracker v1.0.0",
   "appDescription": "Application de gestion des relevés de consommation",
   "features": "Fonctionnalités :",
   "manageCitiesTenants": "• Gestion des cités et locataires",
@@ -195,5 +195,7 @@
   
   "pageNumber": "Page {number}",
   "generatedOn": "Généré le {date}",
-  "totalReadings": "Total des relevés : {count}"
+  "totalReadings": "Total des relevés : {count}",
+  "monthlyStatistics": "Statistiques du mois",
+  "mainMenu": "Menu principal"
 }

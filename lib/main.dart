@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -12,21 +13,52 @@ import 'services/pin_service.dart';
 import 'services/theme_service.dart';
 import 'services/language_service.dart';
 import 'services/enhanced_notification_service.dart';
+import 'services/advanced_notification_service.dart';
 import 'widgets/modern_splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Configuration du mode immersif complet
+  await _configureImmersiveMode();
+
   // Initialisation des services
   await initializeDateFormatting('fr_FR', null);
   tz.initializeTimeZones();
   await EnhancedNotificationService.initialize();
+  await AdvancedNotificationService.initialize();
 
-  runApp(const RentilaxMarkerApp());
+  runApp(const RentilaxTrackerApp());
 }
 
-class RentilaxMarkerApp extends StatelessWidget {
-  const RentilaxMarkerApp({super.key});
+Future<void> _configureImmersiveMode() async {
+  // Mode immersif edge-to-edge complet (barres masquées)
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.immersiveSticky,
+    overlays: [],
+  );
+
+  // Configuration des couleurs de la barre de statut et navigation
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
+  // Forcer l'orientation portrait pour une expérience optimale
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+}
+
+class RentilaxTrackerApp extends StatelessWidget {
+  const RentilaxTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +70,7 @@ class RentilaxMarkerApp extends StatelessWidget {
       child: Consumer2<ThemeService, LanguageService>(
         builder: (context, themeService, languageService, child) {
           return MaterialApp(
-            title: 'Rentilax Marker',
+            title: 'Rentilax Tracker',
             localizationsDelegates: const [
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
@@ -50,14 +82,58 @@ class RentilaxMarkerApp extends StatelessWidget {
               Locale('fr'), // French
             ],
             locale: languageService.currentLocale,
-            theme: ThemeService.lightTheme,
-            darkTheme: ThemeService.darkTheme,
+            theme: ThemeService.lightTheme.copyWith(
+              // Configuration pour le mode immersif
+              appBarTheme: ThemeService.lightTheme.appBarTheme.copyWith(
+                systemOverlayStyle: const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.dark,
+                ),
+              ),
+            ),
+            darkTheme: ThemeService.darkTheme.copyWith(
+              // Configuration pour le mode immersif en thème sombre
+              appBarTheme: ThemeService.darkTheme.appBarTheme.copyWith(
+                systemOverlayStyle: const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light,
+                ),
+              ),
+            ),
             themeMode: themeService.themeMode,
-            home: const InitialScreen(),
+            home: const ImmersiveWrapper(child: InitialScreen()),
             debugShowCheckedModeBanner: false,
           );
         },
       ),
+    );
+  }
+}
+
+class ImmersiveWrapper extends StatelessWidget {
+  final Widget child;
+
+  const ImmersiveWrapper({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: Theme.of(context).brightness == Brightness.dark
+          ? const SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.light,
+              statusBarBrightness: Brightness.dark,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarIconBrightness: Brightness.light,
+            )
+          : const SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.dark,
+              statusBarBrightness: Brightness.light,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarIconBrightness: Brightness.dark,
+            ),
+      child: child,
     );
   }
 }
@@ -106,11 +182,6 @@ class _InitialScreenState extends State<InitialScreen> {
           })
         : const HomeScreen();
 
-    return ModernSplashScreen(
-      title: 'Rentilax Marker',
-      subtitle: 'Gestion moderne des locataires',
-      duration: const Duration(seconds: 2),
-      child: targetScreen,
-    );
+    return targetScreen;
   }
 }

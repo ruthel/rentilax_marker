@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:rentilax_marker/l10n/l10n_extensions.dart';
-import 'package:rentilax_marker/models/unit_type.dart';
-import 'package:rentilax_marker/services/unit_service.dart';
+import 'package:rentilax_tracker/l10n/l10n_extensions.dart';
+import 'package:rentilax_tracker/models/unit_type.dart';
+import 'package:rentilax_tracker/services/unit_service.dart';
 import '../models/cite.dart';
 import '../models/releve.dart';
 import '../models/locataire.dart';
 import '../models/configuration.dart';
 import '../services/database_service.dart';
+import '../services/tarif_service.dart';
 import 'payment_management_screen.dart';
+import '../widgets/section_title.dart';
 
 class RelevesScreen extends StatefulWidget {
   const RelevesScreen({super.key});
@@ -20,6 +22,7 @@ class RelevesScreen extends StatefulWidget {
 class _RelevesScreenState extends State<RelevesScreen> {
   final DatabaseService _databaseService = DatabaseService();
   final UnitService _unitService = UnitService();
+  final TarifService _tarifService = TarifService();
   List<Releve> _allReleves = []; // All relevés loaded from DB
   List<Releve> _filteredReleves = []; // Relevés displayed after filtering
   List<Locataire> _locataires = [];
@@ -145,6 +148,7 @@ class _RelevesScreenState extends State<RelevesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(localizations.relevesScreenTitle),
+        centerTitle: true,
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Column(children: [
@@ -203,7 +207,10 @@ class _RelevesScreenState extends State<RelevesScreen> {
                           value: null, child: Text(localizations.allCities)),
                       ..._cites.map((cite) => DropdownMenuItem(
                             value: cite.id,
-                            child: Flexible(child: Text(cite.nom)),
+                            child: Text(
+                              cite.nom,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           )),
                     ],
                     onChanged: (value) {
@@ -533,10 +540,12 @@ class _RelevesScreenState extends State<RelevesScreen> {
           title: Text(releve == null
               ? localizations.newReading
               : localizations.modifyReading),
-          content: SizedBox(
-              width: double.maxFinite,
-              height: MediaQuery.of(context).size.height *
-                  0.6, // Limit height to 60% of screen height
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: double.maxFinite,
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            child: IntrinsicHeight(
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -600,13 +609,106 @@ class _RelevesScreenState extends State<RelevesScreen> {
                       items: _availableUnits
                           .map((unit) => DropdownMenuItem(
                                 value: unit,
+                                child: Text('${unit.name} (${unit.symbol})'),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setDialogState(() => selectedUnit = value);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Affichage du tarif qui sera utilisé
+                    FutureBuilder<double>(
+                      future: _getTarifForDisplay(
+                          selectedLocataireId, selectedUnit),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const CircularProgressIndicator();
+                        }
+
+                        final tarif = snapshot.data ?? 0.0;
+                        final locataire = _locataires
+                            .firstWhere((l) => l.id == selectedLocataireId);
+                        String tarifSource = '';
+                        Color tarifColor = Colors.grey;
+
+                        if (locataire.tarifPersonnalise != null) {
+                          tarifSource = 'Tarif personnalisé du locataire';
+                          tarifColor = Colors.orange;
+                        } else if (selectedUnit != null) {
+                          tarifSource =
+                              'Tarif de l\'unité ${selectedUnit!.symbol}';
+                          tarifColor = Colors.blue;
+                        } else {
+                          tarifSource = 'Tarif de base';
+                          tarifColor = Colors.grey;
+                        }
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: tarifColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: tarifColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.attach_money_rounded,
+                                      color: tarifColor, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Tarif qui sera appliqué',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: tarifColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${tarif.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: tarifColor,
+                                ),
+                              ),
+                              Text(
+                                tarifSource,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: tarifColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<ConsumptionUnit>(
+                      value: selectedUnit,
+                      decoration: const InputDecoration(
+                        labelText: 'Unité de mesure *',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _availableUnits
+                          .map((unit) => DropdownMenuItem(
+                                value: unit,
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
                                         color: _getUnitTypeColor(unit.type)
-                                            .withOpacity(0.1),
+                                            .withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
@@ -619,22 +721,24 @@ class _RelevesScreenState extends State<RelevesScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(unit.name),
-                                          Text(
-                                            unit.type.name,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          unit.name,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          _getTypeName(unit.type),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
                                           ),
-                                        ],
-                                      ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -695,7 +799,9 @@ class _RelevesScreenState extends State<RelevesScreen> {
                     ),
                   ],
                 ),
-              )),
+              ),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -760,9 +866,23 @@ class _RelevesScreenState extends State<RelevesScreen> {
     }
 
     try {
-      // Déterminer le tarif à utiliser
+      // Déterminer le tarif à utiliser selon la hiérarchie :
+      // 1. Tarif personnalisé du locataire
+      // 2. Tarif spécifique de l'unité
+      // 3. Tarif de base de la configuration
       final locataire = _locataires.firstWhere((l) => l.id == locataireId);
-      final tarif = locataire.tarifPersonnalise ?? _configuration!.tarifBase;
+      double tarif;
+
+      if (locataire.tarifPersonnalise != null) {
+        // Priorité 1: Tarif personnalisé du locataire
+        tarif = locataire.tarifPersonnalise!;
+      } else if (selectedUnit != null) {
+        // Priorité 2: Tarif spécifique de l'unité
+        tarif = await _tarifService.getEffectiveTarifForUnit(selectedUnit.id!);
+      } else {
+        // Priorité 3: Tarif de base de la configuration
+        tarif = _configuration!.tarifBase;
+      }
 
       if (existingReleve == null) {
         // Vérifier si un relevé existe déjà pour ce locataire et ce mois de relevé
@@ -981,6 +1101,31 @@ class _RelevesScreenState extends State<RelevesScreen> {
         return 'kWh';
       case UnitType.gas:
         return 'm³';
+    }
+  }
+
+  String _getTypeName(UnitType type) {
+    switch (type) {
+      case UnitType.water:
+        return 'Eau';
+      case UnitType.electricity:
+        return 'Électricité';
+      case UnitType.gas:
+        return 'Gaz';
+    }
+  }
+
+  // Méthode helper pour récupérer le tarif à afficher
+  Future<double> _getTarifForDisplay(
+      int locataireId, ConsumptionUnit? selectedUnit) async {
+    final locataire = _locataires.firstWhere((l) => l.id == locataireId);
+
+    if (locataire.tarifPersonnalise != null) {
+      return locataire.tarifPersonnalise!;
+    } else if (selectedUnit != null) {
+      return await _tarifService.getEffectiveTarifForUnit(selectedUnit.id!);
+    } else {
+      return _configuration?.tarifBase ?? 0.0;
     }
   }
 }

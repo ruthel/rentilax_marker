@@ -1,7 +1,7 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:rentilax_marker/l10n/generated/app_localizations.dart';
+import 'package:rentilax_tracker/l10n/generated/app_localizations.dart';
 import '../models/releve.dart';
 import '../models/locataire.dart';
 import '../models/configuration.dart';

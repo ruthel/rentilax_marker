@@ -1,4 +1,4 @@
-name: rentilax_marker
+name: rentilax_tracker
 description: "Application pour gérer les locataires et leurs relevés de consommation."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -46,6 +46,14 @@ dependencies:
   fl_chart: ^0.68.0
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
+  # Phase 3: Backup, Export, Import
+  path_provider: ^2.1.4
+  archive: ^3.6.1
+  crypto: ^3.0.5
+  excel: ^4.0.6
+  csv: ^6.0.0
+  file_picker: ^8.1.2
+  share_plus: ^10.0.2
 
 dev_dependencies:
   flutter_test:
@@ -57,6 +65,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -99,3 +108,8 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
   generate: true
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/Rentilax logo.png"

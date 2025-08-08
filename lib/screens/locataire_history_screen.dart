@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:rentilax_marker/l10n/l10n_extensions.dart';
+import 'package:rentilax_tracker/l10n/l10n_extensions.dart';
 import '../models/releve.dart';
 import '../models/locataire.dart';
 import '../models/configuration.dart';

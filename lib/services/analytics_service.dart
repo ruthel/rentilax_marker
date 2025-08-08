@@ -1,287 +1,579 @@
-import 'package:fl_chart/fl_chart.dart';
 import '../models/releve.dart';
 import '../models/locataire.dart';
+import '../models/cite.dart';
+import '../models/consumption_anomaly.dart';
 import 'database_service.dart';
 
 class AnalyticsService {
-  static final DatabaseService _databaseService = DatabaseService();
+  final DatabaseService _databaseService = DatabaseService();
 
-  /// Récupère les tendances de consommation pour un locataire
-  static Future<ConsumptionTrends> getConsumptionTrends(int locataireId,
-      {int months = 12}) async {
-    final releves = await _databaseService.getRelevesByLocataire(locataireId,
-        limit: months);
-
-    final monthlyData = <String, double>{};
-    final consumptionData = <FlSpot>[];
-
-    for (int i = 0; i < releves.length; i++) {
-      final releve = releves[i];
-      final monthKey = '${releve.moisReleve.month}/${releve.moisReleve.year}';
-      monthlyData[monthKey] = releve.consommation;
-      consumptionData.add(FlSpot(i.toDouble(), releve.consommation));
-    }
-
-    final averageConsumption = releves.isNotEmpty
-        ? releves.map((r) => r.consommation).reduce((a, b) => a + b) /
-            releves.length
-        : 0.0;
-
-    final maxConsumption = releves.isNotEmpty
-        ? releves.map((r) => r.consommation).reduce((a, b) => a > b ? a : b)
-        : 0.0;
-
-    final minConsumption = releves.isNotEmpty
-        ? releves.map((r) => r.consommation).reduce((a, b) => a < b ? a : b)
-        : 0.0;
-
-    return ConsumptionTrends(
-      monthlyData: monthlyData,
-      chartData: consumptionData,
-      averageConsumption: averageConsumption,
-      maxConsumption: maxConsumption,
-      minConsumption: minConsumption,
-      trend: _calculateTrend(releves),
-    );
-  }
-
-  /// Calcule les statistiques financières globales
-  static Future<FinancialAnalytics> getFinancialAnalytics({
+  // Métriques de revenus
+  Future<RevenueAnalytics> getRevenueAnalytics({
     DateTime? startDate,
     DateTime? endDate,
   }) async {
-    final start =
-        startDate ?? DateTime.now().subtract(const Duration(days: 30));
-    final end = endDate ?? DateTime.now();
+    final releves = await _databaseService.getReleves();
+    final config = await _databaseService.getConfiguration();
 
-    final releves = await _databaseService.getRelevesInPeriod(start, end);
+    final filteredReleves = _filterRelevesByDate(releves, startDate, endDate);
 
-    double totalRevenue = 0;
-    double collectedRevenue = 0;
-    double pendingRevenue = 0;
-    int totalReadings = releves.length;
-    int paidReadings = 0;
+    final totalRevenue = filteredReleves.fold(0.0, (sum, r) => sum + r.montant);
+    final paidRevenue = filteredReleves
+        .where((r) => r.isPaid)
+        .fold(0.0, (sum, r) => sum + r.montant);
+    final unpaidRevenue = totalRevenue - paidRevenue;
 
-    final monthlyRevenue = <String, double>{};
-    final revenueChartData = <FlSpot>[];
+    final monthlyData = _getMonthlyRevenueData(filteredReleves);
+    final paymentStatusData = _getPaymentStatusData(filteredReleves);
 
-    for (final releve in releves) {
-      totalRevenue += releve.montant;
-      collectedRevenue += releve.paidAmount;
-      pendingRevenue += (releve.montant - releve.paidAmount);
-
-      if (releve.isPaid) paidReadings++;
-
-      final monthKey = '${releve.moisReleve.month}/${releve.moisReleve.year}';
-      monthlyRevenue[monthKey] =
-          (monthlyRevenue[monthKey] ?? 0) + releve.montant;
-    }
-
-    // Préparer les données pour le graphique
-    int index = 0;
-    monthlyRevenue.forEach((month, revenue) {
-      revenueChartData.add(FlSpot(index.toDouble(), revenue.toDouble()));
-      index++;
-    });
-
-    final collectionRate =
-        totalRevenue > 0 ? (collectedRevenue / totalRevenue) * 100 : 0.0;
-
-    return FinancialAnalytics(
+    return RevenueAnalytics(
       totalRevenue: totalRevenue,
-      collectedRevenue: collectedRevenue,
-      pendingRevenue: pendingRevenue,
-      collectionRate: collectionRate,
-      totalReadings: totalReadings,
-      paidReadings: paidReadings,
-      unpaidReadings: totalReadings - paidReadings,
-      monthlyRevenue: monthlyRevenue,
-      revenueChartData: revenueChartData,
+      paidRevenue: paidRevenue,
+      unpaidRevenue: unpaidRevenue,
+      monthlyData: monthlyData,
+      paymentStatusData: paymentStatusData,
+      currency: config.devise,
     );
   }
 
-  /// Détecte les anomalies de consommation
-  static Future<List<ConsumptionAnomaly>> detectAnomalies() async {
-    final anomalies = <ConsumptionAnomaly>[];
+  // Métriques de consommation
+  Future<ConsumptionAnalytics> getConsumptionAnalytics({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final releves = await _databaseService.getReleves();
     final locataires = await _databaseService.getLocataires();
+    final cites = await _databaseService.getCites();
+
+    final filteredReleves = _filterRelevesByDate(releves, startDate, endDate);
+
+    final totalConsumption =
+        filteredReleves.fold(0.0, (sum, r) => sum + r.consommation);
+    final averageConsumption = filteredReleves.isEmpty
+        ? 0.0
+        : totalConsumption / filteredReleves.length;
+
+    final monthlyConsumption = _getMonthlyConsumptionData(filteredReleves);
+    final consumptionByCite =
+        _getConsumptionByCite(filteredReleves, locataires, cites);
+    final consumptionByType = _getConsumptionByType(filteredReleves);
+
+    return ConsumptionAnalytics(
+      totalConsumption: totalConsumption,
+      averageConsumption: averageConsumption,
+      monthlyData: monthlyConsumption,
+      byCiteData: consumptionByCite,
+      byTypeData: consumptionByType,
+    );
+  }
+
+  // Métriques des locataires
+  Future<TenantAnalytics> getTenantAnalytics() async {
+    final locataires = await _databaseService.getLocataires();
+    final releves = await _databaseService.getReleves();
+    final cites = await _databaseService.getCites();
+
+    final totalTenants = locataires.length;
+    final activeTenants = _getActiveTenants(locataires, releves);
+    final tenantsByCite = _getTenantsByCite(locataires, cites);
+    final paymentReliability =
+        _getPaymentReliabilityScores(locataires, releves);
+
+    return TenantAnalytics(
+      totalTenants: totalTenants,
+      activeTenants: activeTenants,
+      tenantsByCite: tenantsByCite,
+      paymentReliability: paymentReliability,
+    );
+  }
+
+  // Métriques des cités
+  Future<CiteAnalytics> getCiteAnalytics() async {
+    final cites = await _databaseService.getCites();
+    final locataires = await _databaseService.getLocataires();
+    final releves = await _databaseService.getReleves();
+
+    final citePerformance = <CitePerformance>[];
+
+    for (final cite in cites) {
+      final citeLocataires =
+          locataires.where((l) => l.citeId == cite.id).toList();
+      final citeReleves = releves.where((r) {
+        final locataire = locataires.firstWhere(
+          (l) => l.id == r.locataireId,
+          orElse: () => locataires.first,
+        );
+        return locataire.citeId == cite.id;
+      }).toList();
+
+      final totalRevenue = citeReleves.fold(0.0, (sum, r) => sum + r.montant);
+      final paidRevenue = citeReleves
+          .where((r) => r.isPaid)
+          .fold(0.0, (sum, r) => sum + r.montant);
+      final totalConsumption =
+          citeReleves.fold(0.0, (sum, r) => sum + r.consommation);
+
+      citePerformance.add(CitePerformance(
+        cite: cite,
+        tenantCount: citeLocataires.length,
+        totalRevenue: totalRevenue,
+        paidRevenue: paidRevenue,
+        totalConsumption: totalConsumption,
+        averageConsumption: citeLocataires.isEmpty
+            ? 0.0
+            : totalConsumption / citeLocataires.length,
+        paymentRate:
+            totalRevenue == 0 ? 0.0 : (paidRevenue / totalRevenue) * 100,
+      ));
+    }
+
+    return CiteAnalytics(
+      totalCites: cites.length,
+      citePerformance: citePerformance,
+    );
+  }
+
+  // Prédictions et tendances
+  Future<PredictionAnalytics> getPredictionAnalytics() async {
+    final releves = await _databaseService.getReleves();
+
+    final monthlyRevenue = _getMonthlyRevenueData(releves);
+    final monthlyConsumption = _getMonthlyConsumptionData(releves);
+
+    final revenueTrend =
+        _calculateTrend(monthlyRevenue.map((d) => d.value).toList());
+    final consumptionTrend =
+        _calculateTrend(monthlyConsumption.map((d) => d.value).toList());
+
+    final nextMonthRevenue =
+        _predictNextValue(monthlyRevenue.map((d) => d.value).toList());
+    final nextMonthConsumption =
+        _predictNextValue(monthlyConsumption.map((d) => d.value).toList());
+
+    return PredictionAnalytics(
+      revenueTrend: revenueTrend,
+      consumptionTrend: consumptionTrend,
+      predictedRevenue: nextMonthRevenue,
+      predictedConsumption: nextMonthConsumption,
+    );
+  }
+
+  // Méthodes utilitaires privées
+  List<Releve> _filterRelevesByDate(
+      List<Releve> releves, DateTime? start, DateTime? end) {
+    if (start == null && end == null) return releves;
+
+    return releves.where((releve) {
+      if (start != null && releve.dateReleve.isBefore(start)) return false;
+      if (end != null && releve.dateReleve.isAfter(end)) return false;
+      return true;
+    }).toList();
+  }
+
+  List<ChartDataPoint> _getMonthlyRevenueData(List<Releve> releves) {
+    final monthlyData = <String, double>{};
+
+    for (final releve in releves) {
+      final monthKey =
+          '${releve.moisReleve.year}-${releve.moisReleve.month.toString().padLeft(2, '0')}';
+      monthlyData[monthKey] = (monthlyData[monthKey] ?? 0) + releve.montant;
+    }
+
+    final sortedKeys = monthlyData.keys.toList()..sort();
+    return sortedKeys
+        .map((key) => ChartDataPoint(
+              label: _formatMonthLabel(key),
+              value: monthlyData[key]!,
+              date: DateTime.parse('$key-01'),
+            ))
+        .toList();
+  }
+
+  List<ChartDataPoint> _getMonthlyConsumptionData(List<Releve> releves) {
+    final monthlyData = <String, double>{};
+
+    for (final releve in releves) {
+      final monthKey =
+          '${releve.moisReleve.year}-${releve.moisReleve.month.toString().padLeft(2, '0')}';
+      monthlyData[monthKey] =
+          (monthlyData[monthKey] ?? 0) + releve.consommation;
+    }
+
+    final sortedKeys = monthlyData.keys.toList()..sort();
+    return sortedKeys
+        .map((key) => ChartDataPoint(
+              label: _formatMonthLabel(key),
+              value: monthlyData[key]!,
+              date: DateTime.parse('$key-01'),
+            ))
+        .toList();
+  }
+
+  List<ChartDataPoint> _getPaymentStatusData(List<Releve> releves) {
+    final paid = releves.where((r) => r.isPaid).length.toDouble();
+    final unpaid = releves.where((r) => !r.isPaid).length.toDouble();
+
+    return [
+      ChartDataPoint(label: 'Payé', value: paid),
+      ChartDataPoint(label: 'Non payé', value: unpaid),
+    ];
+  }
+
+  List<ChartDataPoint> _getConsumptionByCite(
+      List<Releve> releves, List<Locataire> locataires, List<Cite> cites) {
+    final citeConsumption = <int, double>{};
+
+    for (final releve in releves) {
+      final locataire = locataires.firstWhere(
+        (l) => l.id == releve.locataireId,
+        orElse: () => locataires.first,
+      );
+      citeConsumption[locataire.citeId] =
+          (citeConsumption[locataire.citeId] ?? 0) + releve.consommation;
+    }
+
+    return citeConsumption.entries.map((entry) {
+      final cite = cites.firstWhere(
+        (c) => c.id == entry.key,
+        orElse: () => Cite(nom: 'Inconnue', dateCreation: DateTime.now()),
+      );
+      return ChartDataPoint(
+        label: cite.nom,
+        value: entry.value,
+      );
+    }).toList();
+  }
+
+  List<ChartDataPoint> _getConsumptionByType(List<Releve> releves) {
+    final typeConsumption = <String, double>{};
+
+    for (final releve in releves) {
+      final typeName = releve.unitType.name;
+      typeConsumption[typeName] =
+          (typeConsumption[typeName] ?? 0) + releve.consommation;
+    }
+
+    return typeConsumption.entries
+        .map((entry) => ChartDataPoint(
+              label: entry.key,
+              value: entry.value,
+            ))
+        .toList();
+  }
+
+  int _getActiveTenants(List<Locataire> locataires, List<Releve> releves) {
+    final now = DateTime.now();
+    final threeMonthsAgo = DateTime(now.year, now.month - 3, now.day);
+
+    final activeIds = releves
+        .where((r) => r.dateReleve.isAfter(threeMonthsAgo))
+        .map((r) => r.locataireId)
+        .toSet();
+
+    return activeIds.length;
+  }
+
+  List<ChartDataPoint> _getTenantsByCite(
+      List<Locataire> locataires, List<Cite> cites) {
+    final citeCounts = <int, int>{};
 
     for (final locataire in locataires) {
-      final releves =
-          await _databaseService.getRelevesByLocataire(locataire.id!, limit: 6);
+      citeCounts[locataire.citeId] = (citeCounts[locataire.citeId] ?? 0) + 1;
+    }
 
-      if (releves.length >= 3) {
-        final averageConsumption =
-            releves.map((r) => r.consommation).reduce((a, b) => a + b) /
-                releves.length;
+    return citeCounts.entries.map((entry) {
+      final cite = cites.firstWhere(
+        (c) => c.id == entry.key,
+        orElse: () => Cite(nom: 'Inconnue', dateCreation: DateTime.now()),
+      );
+      return ChartDataPoint(
+        label: cite.nom,
+        value: entry.value.toDouble(),
+      );
+    }).toList();
+  }
 
-        final latestConsumption = releves.first.consommation;
+  List<TenantReliability> _getPaymentReliabilityScores(
+      List<Locataire> locataires, List<Releve> releves) {
+    return locataires.map((locataire) {
+      final locataireReleves =
+          releves.where((r) => r.locataireId == locataire.id).toList();
 
-        // Anomalie si la consommation actuelle dépasse 150% de la moyenne
-        if (latestConsumption > averageConsumption * 1.5) {
-          anomalies.add(ConsumptionAnomaly(
+      if (locataireReleves.isEmpty) {
+        return TenantReliability(
+          locataire: locataire,
+          reliabilityScore: 0.0,
+          totalReleves: 0,
+          paidReleves: 0,
+        );
+      }
+
+      final paidCount = locataireReleves.where((r) => r.isPaid).length;
+      final score = (paidCount / locataireReleves.length) * 100;
+
+      return TenantReliability(
+        locataire: locataire,
+        reliabilityScore: score,
+        totalReleves: locataireReleves.length,
+        paidReleves: paidCount,
+      );
+    }).toList();
+  }
+
+  double _calculateTrend(List<double> values) {
+    if (values.length < 2) return 0.0;
+
+    final recent = values.sublist(values.length - 3);
+    final older = values.sublist(0, values.length - 3);
+
+    if (older.isEmpty) return 0.0;
+
+    final recentAvg = recent.reduce((a, b) => a + b) / recent.length;
+    final olderAvg = older.reduce((a, b) => a + b) / older.length;
+
+    return olderAvg == 0 ? 0.0 : ((recentAvg - olderAvg) / olderAvg) * 100;
+  }
+
+  double _predictNextValue(List<double> values) {
+    if (values.length < 3) return values.isEmpty ? 0.0 : values.last;
+
+    // Simple linear regression pour prédiction
+    final recent = values.sublist(values.length - 6);
+    final sum = recent.reduce((a, b) => a + b);
+    final avg = sum / recent.length;
+
+    final trend = _calculateTrend(values);
+    return avg * (1 + (trend / 100));
+  }
+
+  String _formatMonthLabel(String monthKey) {
+    final parts = monthKey.split('-');
+    final year = parts[0];
+    final month = int.parse(parts[1]);
+
+    const months = [
+      '',
+      'Jan',
+      'Fév',
+      'Mar',
+      'Avr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Aoû',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Déc'
+    ];
+
+    return '${months[month]} $year';
+  }
+
+  /// Détecte les anomalies de consommation pour un locataire donné
+  Future<List<ConsumptionAnomaly>> detectConsumptionAnomalies({
+    int? locataireId,
+    int monthsToAnalyze = 6,
+    double thresholdPercentage = 25.0,
+  }) async {
+    final releves = await _databaseService.getReleves();
+    final locataires = await _databaseService.getLocataires();
+
+    final anomalies = <ConsumptionAnomaly>[];
+    final now = DateTime.now();
+    final cutoffDate = DateTime(now.year, now.month - monthsToAnalyze, now.day);
+
+    // Filtrer les relevés par locataire si spécifié
+    final relevesToAnalyze = locataireId != null
+        ? releves.where((r) => r.locataireId == locataireId).toList()
+        : releves;
+
+    // Grouper par locataire
+    final relevesByLocataire = <int, List<Releve>>{};
+    for (final releve in relevesToAnalyze) {
+      if (releve.dateReleve.isAfter(cutoffDate)) {
+        relevesByLocataire
+            .putIfAbsent(releve.locataireId, () => [])
+            .add(releve);
+      }
+    }
+
+    // Analyser chaque locataire
+    for (final entry in relevesByLocataire.entries) {
+      final locataireReleves = entry.value;
+      final locataire = locataires.firstWhere(
+        (l) => l.id == entry.key,
+        orElse: () => locataires.first,
+      );
+
+      if (locataireReleves.length < 3) continue; // Pas assez de données
+
+      // Calculer la moyenne historique (exclure le dernier relevé)
+      final historicalReleves =
+          locataireReleves.sublist(0, locataireReleves.length - 1);
+      final averageConsumption =
+          historicalReleves.fold(0.0, (sum, r) => sum + r.consommation) /
+              historicalReleves.length;
+
+      // Analyser le dernier relevé
+      final latestReleve = locataireReleves.last;
+      final currentConsumption = latestReleve.consommation;
+
+      if (averageConsumption > 0) {
+        final deviationPercentage =
+            ((currentConsumption - averageConsumption) / averageConsumption) *
+                100;
+
+        if (deviationPercentage.abs() >= thresholdPercentage) {
+          final anomaly = ConsumptionAnomaly.fromReleve(
+            releve: latestReleve,
             locataire: locataire,
-            releve: releves.first,
             averageConsumption: averageConsumption,
-            currentConsumption: latestConsumption,
-            anomalyType: AnomalyType.highConsumption,
-            severity: _calculateSeverity(latestConsumption, averageConsumption),
-          ));
-        }
-
-        // Anomalie si la consommation actuelle est inférieure à 50% de la moyenne
-        if (latestConsumption < averageConsumption * 0.5 &&
-            latestConsumption > 0) {
-          anomalies.add(ConsumptionAnomaly(
-            locataire: locataire,
-            releve: releves.first,
-            averageConsumption: averageConsumption,
-            currentConsumption: latestConsumption,
-            anomalyType: AnomalyType.lowConsumption,
-            severity: _calculateSeverity(latestConsumption, averageConsumption),
-          ));
+          );
+          anomalies.add(anomaly);
         }
       }
     }
 
+    // Trier par sévérité (les plus critiques en premier)
+    anomalies.sort((a, b) {
+      final severityOrder = {
+        AnomalySeverity.high: 3,
+        AnomalySeverity.medium: 2,
+        AnomalySeverity.low: 1,
+      };
+      return severityOrder[b.severity]!.compareTo(severityOrder[a.severity]!);
+    });
+
     return anomalies;
   }
 
-  /// Génère des prévisions de revenus
-  static Future<RevenueForecasting> generateRevenueForecasting(
-      {int months = 6}) async {
-    final historicalData = await _databaseService.getRelevesInPeriod(
-      DateTime.now().subtract(Duration(days: 365)),
-      DateTime.now(),
+  /// Obtient les anomalies récentes (derniers 30 jours)
+  Future<List<ConsumptionAnomaly>> getRecentAnomalies() async {
+    return detectConsumptionAnomalies(
+      monthsToAnalyze: 1,
+      thresholdPercentage: 20.0,
     );
-
-    // Calcul de la moyenne mensuelle
-    final monthlyAverages = <int, double>{};
-    for (final releve in historicalData) {
-      final month = releve.moisReleve.month;
-      monthlyAverages[month] = (monthlyAverages[month] ?? 0) + releve.montant;
-    }
-
-    // Calcul des prévisions
-    final forecasts = <DateTime, double>{};
-    final currentDate = DateTime.now();
-
-    for (int i = 1; i <= months; i++) {
-      final forecastDate = DateTime(currentDate.year, currentDate.month + i, 1);
-      final month = forecastDate.month;
-      final averageForMonth = monthlyAverages[month] ?? 0;
-
-      // Appliquer une croissance estimée de 2% par an
-      final growthFactor = 1 + (0.02 * i / 12);
-      forecasts[forecastDate] = averageForMonth * growthFactor;
-    }
-
-    return RevenueForecasting(
-      forecasts: forecasts,
-      confidence: 0.75, // 75% de confiance
-      basedOnMonths: historicalData.length,
-    );
-  }
-
-  static ConsumptionTrend _calculateTrend(List<Releve> releves) {
-    if (releves.length < 2) return ConsumptionTrend.stable;
-
-    final recent =
-        releves.take(3).map((r) => r.consommation).reduce((a, b) => a + b) / 3;
-    final older = releves
-            .skip(3)
-            .take(3)
-            .map((r) => r.consommation)
-            .reduce((a, b) => a + b) /
-        3;
-
-    if (recent > older * 1.1) return ConsumptionTrend.increasing;
-    if (recent < older * 0.9) return ConsumptionTrend.decreasing;
-    return ConsumptionTrend.stable;
-  }
-
-  static AnomalySeverity _calculateSeverity(double current, double average) {
-    final ratio = current / average;
-    if (ratio > 2.0 || ratio < 0.3) return AnomalySeverity.high;
-    if (ratio > 1.5 || ratio < 0.5) return AnomalySeverity.medium;
-    return AnomalySeverity.low;
   }
 }
 
-// Classes de données pour les analyses
-class ConsumptionTrends {
-  final Map<String, double> monthlyData;
-  final List<FlSpot> chartData;
-  final double averageConsumption;
-  final double maxConsumption;
-  final double minConsumption;
-  final ConsumptionTrend trend;
+// Modèles de données pour les analytics
+class ChartDataPoint {
+  final String label;
+  final double value;
+  final DateTime? date;
+  final String? color;
 
-  ConsumptionTrends({
-    required this.monthlyData,
-    required this.chartData,
-    required this.averageConsumption,
-    required this.maxConsumption,
-    required this.minConsumption,
-    required this.trend,
+  ChartDataPoint({
+    required this.label,
+    required this.value,
+    this.date,
+    this.color,
   });
 }
 
-class FinancialAnalytics {
+class RevenueAnalytics {
   final double totalRevenue;
-  final double collectedRevenue;
-  final double pendingRevenue;
-  final double collectionRate;
-  final int totalReadings;
-  final int paidReadings;
-  final int unpaidReadings;
-  final Map<String, double> monthlyRevenue;
-  final List<FlSpot> revenueChartData;
+  final double paidRevenue;
+  final double unpaidRevenue;
+  final List<ChartDataPoint> monthlyData;
+  final List<ChartDataPoint> paymentStatusData;
+  final String currency;
 
-  FinancialAnalytics({
+  RevenueAnalytics({
     required this.totalRevenue,
-    required this.collectedRevenue,
-    required this.pendingRevenue,
-    required this.collectionRate,
-    required this.totalReadings,
-    required this.paidReadings,
-    required this.unpaidReadings,
-    required this.monthlyRevenue,
-    required this.revenueChartData,
+    required this.paidRevenue,
+    required this.unpaidRevenue,
+    required this.monthlyData,
+    required this.paymentStatusData,
+    required this.currency,
   });
 }
 
-class ConsumptionAnomaly {
-  final Locataire locataire;
-  final Releve releve;
+class ConsumptionAnalytics {
+  final double totalConsumption;
   final double averageConsumption;
-  final double currentConsumption;
-  final AnomalyType anomalyType;
-  final AnomalySeverity severity;
+  final List<ChartDataPoint> monthlyData;
+  final List<ChartDataPoint> byCiteData;
+  final List<ChartDataPoint> byTypeData;
 
-  ConsumptionAnomaly({
-    required this.locataire,
-    required this.releve,
+  ConsumptionAnalytics({
+    required this.totalConsumption,
     required this.averageConsumption,
-    required this.currentConsumption,
-    required this.anomalyType,
-    required this.severity,
+    required this.monthlyData,
+    required this.byCiteData,
+    required this.byTypeData,
   });
 }
 
-class RevenueForecasting {
-  final Map<DateTime, double> forecasts;
-  final double confidence;
-  final int basedOnMonths;
+class TenantAnalytics {
+  final int totalTenants;
+  final int activeTenants;
+  final List<ChartDataPoint> tenantsByCite;
+  final List<TenantReliability> paymentReliability;
 
-  RevenueForecasting({
-    required this.forecasts,
-    required this.confidence,
-    required this.basedOnMonths,
+  TenantAnalytics({
+    required this.totalTenants,
+    required this.activeTenants,
+    required this.tenantsByCite,
+    required this.paymentReliability,
   });
 }
 
-enum ConsumptionTrend { increasing, decreasing, stable }
+class CiteAnalytics {
+  final int totalCites;
+  final List<CitePerformance> citePerformance;
 
-enum AnomalyType { highConsumption, lowConsumption }
+  CiteAnalytics({
+    required this.totalCites,
+    required this.citePerformance,
+  });
+}
 
-enum AnomalySeverity { low, medium, high }
+class CitePerformance {
+  final Cite cite;
+  final int tenantCount;
+  final double totalRevenue;
+  final double paidRevenue;
+  final double totalConsumption;
+  final double averageConsumption;
+  final double paymentRate;
+
+  CitePerformance({
+    required this.cite,
+    required this.tenantCount,
+    required this.totalRevenue,
+    required this.paidRevenue,
+    required this.totalConsumption,
+    required this.averageConsumption,
+    required this.paymentRate,
+  });
+}
+
+class TenantReliability {
+  final Locataire locataire;
+  final double reliabilityScore;
+  final int totalReleves;
+  final int paidReleves;
+
+  TenantReliability({
+    required this.locataire,
+    required this.reliabilityScore,
+    required this.totalReleves,
+    required this.paidReleves,
+  });
+}
+
+class PredictionAnalytics {
+  final double revenueTrend;
+  final double consumptionTrend;
+  final double predictedRevenue;
+  final double predictedConsumption;
+
+  PredictionAnalytics({
+    required this.revenueTrend,
+    required this.consumptionTrend,
+    required this.predictedRevenue,
+    required this.predictedConsumption,
+  });
+}

@@ -6,6 +6,7 @@ import '../models/releve.dart';
 import '../models/configuration.dart';
 import '../models/payment_history.dart';
 import '../models/unit_type.dart';
+import '../models/unit_tarif.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -103,6 +104,20 @@ class DatabaseService {
         conversion_factor REAL NOT NULL DEFAULT 1.0,
         is_default INTEGER NOT NULL DEFAULT 0,
         date_creation INTEGER NOT NULL
+      )
+    ''');
+
+    // Table des tarifs par unité
+    await db.execute('''
+      CREATE TABLE unit_tarifs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        unit_id INTEGER NOT NULL,
+        tarif REAL NOT NULL,
+        devise TEXT NOT NULL DEFAULT 'FCFA',
+        date_creation INTEGER NOT NULL,
+        date_modification INTEGER,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (unit_id) REFERENCES consumption_units (id)
       )
     ''');
 
@@ -584,5 +599,88 @@ class DatabaseService {
       orderBy: 'type, name',
     );
     return List.generate(maps.length, (i) => ConsumptionUnit.fromMap(maps[i]));
+  }
+
+  // CRUD pour les tarifs par unité
+  Future<UnitTarif> insertUnitTarif(UnitTarif tarif) async {
+    final db = await database;
+    final id = await db.insert('unit_tarifs', tarif.toMap());
+    return tarif.copyWith(id: id);
+  }
+
+  Future<List<UnitTarif>> getUnitTarifs() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'unit_tarifs',
+      where: 'is_active = 1',
+      orderBy: 'unit_id, date_creation DESC',
+    );
+    return List.generate(maps.length, (i) => UnitTarif.fromMap(maps[i]));
+  }
+
+  Future<UnitTarif?> getUnitTarifByUnitId(int unitId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'unit_tarifs',
+      where: 'unit_id = ? AND is_active = 1',
+      whereArgs: [unitId],
+      orderBy: 'date_creation DESC',
+      limit: 1,
+    );
+    return maps.isNotEmpty ? UnitTarif.fromMap(maps.first) : null;
+  }
+
+  Future<List<UnitTarif>> getUnitTarifsByUnitId(int unitId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'unit_tarifs',
+      where: 'unit_id = ?',
+      whereArgs: [unitId],
+      orderBy: 'date_creation DESC',
+    );
+    return List.generate(maps.length, (i) => UnitTarif.fromMap(maps[i]));
+  }
+
+  Future<void> updateUnitTarif(UnitTarif tarif) async {
+    final db = await database;
+    await db.update(
+      'unit_tarifs',
+      tarif.copyWith(dateModification: DateTime.now()).toMap(),
+      where: 'id = ?',
+      whereArgs: [tarif.id],
+    );
+  }
+
+  Future<void> deactivateUnitTarif(int tarifId) async {
+    final db = await database;
+    await db.update(
+      'unit_tarifs',
+      {'is_active': 0},
+      where: 'id = ?',
+      whereArgs: [tarifId],
+    );
+  }
+
+  Future<void> deleteUnitTarif(int id) async {
+    final db = await database;
+    await db.delete('unit_tarifs', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Méthode pour obtenir le tarif actif d'une unité
+  Future<double?> getActiveTarifForUnit(int unitId) async {
+    final tarif = await getUnitTarifByUnitId(unitId);
+    return tarif?.tarif;
+  }
+
+  // Méthode pour obtenir le tarif par défaut si aucun tarif spécifique n'est défini
+  Future<double> getDefaultTarifForUnit(int unitId) async {
+    final specificTarif = await getActiveTarifForUnit(unitId);
+    if (specificTarif != null) {
+      return specificTarif;
+    }
+    
+    // Retourner le tarif de base de la configuration
+    final config = await getConfiguration();
+    return config.tarifBase;
   }
 }

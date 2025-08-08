@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// The title of the application
   ///
   /// In en, this message translates to:
-  /// **'Rentilax Marker'**
+  /// **'Rentilax Tracker'**
   String get appTitle;
 
   /// Title for the cities management screen
@@ -755,7 +755,7 @@ abstract class AppLocalizations {
   /// No description provided for @appVersion.
   ///
   /// In en, this message translates to:
-  /// **'Rentilax Marker v1.0.0'**
+  /// **'Rentilax Tracker v1.0.0'**
   String get appVersion;
 
   /// No description provided for @appDescription.
@@ -1135,6 +1135,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Total readings: {count}'**
   String totalReadings(int count);
+
+  /// No description provided for @monthlyStatistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly Statistics'**
+  String get monthlyStatistics;
+
+  /// No description provided for @mainMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Main Menu'**
+  String get mainMenu;
 }
 
 class _AppLocalizationsDelegate

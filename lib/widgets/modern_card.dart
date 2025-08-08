@@ -33,7 +33,7 @@ class ModernCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Container(
-      margin: margin ?? const EdgeInsets.all(8),
+      margin: margin ?? const EdgeInsets.all(3),
       child: Material(
         color: backgroundColor ?? colorScheme.surface,
         borderRadius: borderRadius ?? BorderRadius.circular(16),
@@ -46,8 +46,8 @@ class ModernCard extends StatelessWidget {
               borderRadius: borderRadius ?? BorderRadius.circular(16),
               border: showBorder
                   ? Border.all(
-                      color:
-                          borderColor ?? colorScheme.outline.withOpacity(0.2),
+                      color: borderColor ??
+                          colorScheme.outline.withValues(alpha: 0.4),
                       width: borderWidth,
                     )
                   : null,

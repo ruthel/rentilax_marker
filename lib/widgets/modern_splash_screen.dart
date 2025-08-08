@@ -117,101 +117,78 @@ class _ModernSplashScreenState extends State<ModernSplashScreen>
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.primary.withOpacity(0.1),
-              colorScheme.surface,
-              colorScheme.secondary.withOpacity(0.05),
-            ],
-          ),
-        ),
+        color: colorScheme.surfaceContainerHighest,
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo animé
-              AnimatedBuilder(
-                animation: _scaleAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: widget.logo ??
-                        Container(
-                          width: 140,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(30),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colorScheme.primary.withOpacity(0.2),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: const Padding(
-                            padding: EdgeInsets.all(20),
-                            child: AppLogo(size: 100),
-                          ),
-                        ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 40),
-
-              // Titre animé
-              SlideTransition(
-                position: _slideAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Column(
-                    children: [
-                      if (widget.title != null)
-                        Text(
-                          widget.title!,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      if (widget.subtitle != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          widget.subtitle!,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ],
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo animé
+                  AnimatedBuilder(
+                    animation: _scaleAnimation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: _scaleAnimation.value,
+                        child: widget.logo ?? const AppLogo(size: 88),
+                      );
+                    },
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 60),
+                  const SizedBox(height: 24),
 
-              // Indicateur de chargement animé
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      colorScheme.primary,
+                  // Titre animé
+                  SlideTransition(
+                    position: _slideAnimation,
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Column(
+                        children: [
+                          if (widget.title != null)
+                            Text(
+                              widget.title!,
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          if (widget.subtitle != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.subtitle!,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
+
+                  const SizedBox(height: 36),
+
+                  // Indicateur de chargement animé
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

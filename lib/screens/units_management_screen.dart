@@ -7,6 +7,8 @@ import '../widgets/modern_input.dart';
 import '../widgets/modern_list_tile.dart';
 import '../widgets/modern_button.dart';
 import '../widgets/modern_snackbar.dart';
+import '../widgets/section_title.dart';
+import '../utils/app_spacing.dart';
 
 class UnitsManagementScreen extends StatefulWidget {
   const UnitsManagementScreen({super.key});
@@ -70,6 +72,7 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
     return Scaffold(
       appBar: ModernAppBar(
         title: 'Gestion des Unités',
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),
@@ -108,7 +111,6 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
 
   Widget _buildUnitsTab(UnitType type, List<ConsumptionUnit> units) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     if (units.isEmpty) {
       return _buildEmptyState(type);
@@ -117,7 +119,7 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
     return RefreshIndicator(
       onRefresh: _loadUnits,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.page,
         itemCount: units.length + 1, // +1 pour les statistiques
         itemBuilder: (context, index) {
           if (index == 0) {
@@ -133,7 +135,6 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
 
   Widget _buildStatsCard(UnitType type, List<ConsumptionUnit> units) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final defaultUnit = units.where((u) => u.isDefault).firstOrNull;
 
     return ModernCard(
@@ -160,16 +161,11 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      type.name,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    SectionTitle(text: type.name),
                     Text(
                       '${units.length} unité${units.length > 1 ? 's' : ''} disponible${units.length > 1 ? 's' : ''}',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -178,25 +174,25 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
             ],
           ),
           if (defaultUnit != null) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: AppSpacing.md),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
+                color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   Icon(
                     Icons.star_rounded,
-                    color: colorScheme.primary,
+                    color: Theme.of(context).colorScheme.primary,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Unité par défaut: ${defaultUnit.name} (${defaultUnit.symbol})',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.primary,
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -211,7 +207,7 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
 
   Widget _buildUnitCard(ConsumptionUnit unit) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ModernListTile(
       leading: Container(
@@ -273,11 +269,11 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
 
   Widget _buildEmptyState(UnitType type) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32.0),
+        padding: AppSpacing.page,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -293,16 +289,9 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
                 color: _getTypeColor(type),
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Aucune unité ${type.name.toLowerCase()}',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
+            SizedBox(height: AppSpacing.md),
+            SectionTitle(text: 'Aucune unité ${type.name.toLowerCase()}'),
+            SizedBox(height: AppSpacing.sm),
             Text(
               'Ajoutez votre première unité de mesure pour ${type.name.toLowerCase()}',
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -310,7 +299,7 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: AppSpacing.lg),
             ModernButton(
               text: 'Ajouter une unité',
               icon: Icons.add_rounded,
@@ -344,14 +333,9 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              unit.name,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(height: 20),
+            SizedBox(height: AppSpacing.md),
+            SectionTitle(text: unit.name),
+            SizedBox(height: AppSpacing.md),
             if (!unit.isDefault)
               ModernListTile(
                 leading: const Icon(Icons.star_rounded),
@@ -447,29 +431,29 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
                         }
                       : null, // Ne pas permettre de changer le type lors de la modification
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: AppSpacing.md),
                 ModernInput(
                   label: 'Nom de l\'unité *',
                   controller: nameController,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: AppSpacing.md),
                 ModernInput(
                   label: 'Symbole *',
                   controller: symbolController,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: AppSpacing.md),
                 ModernInput(
                   label: 'Nom complet *',
                   controller: fullNameController,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: AppSpacing.md),
                 ModernInput(
                   label: 'Facteur de conversion',
                   helperText: 'Facteur de conversion vers l\'unité de base',
                   controller: conversionController,
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: AppSpacing.md),
                 CheckboxListTile(
                   title: const Text('Unité par défaut'),
                   subtitle: const Text(

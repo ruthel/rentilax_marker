@@ -3,15 +3,35 @@ import '../models/locataire.dart';
 import '../models/releve.dart';
 import '../models/cite.dart';
 import 'database_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
   static final DatabaseService _databaseService = DatabaseService();
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
+
+  final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
+
+  Future<void> initialize() async {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+
+    const initializationSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _notifications.initialize(initializationSettings);
+  }
 
   /// Envoie un rappel de paiement par SMS (simulation)
   static Future<bool> sendPaymentReminder(
       Locataire locataire, Releve releve) async {
     try {
-      if (locataire.telephone == null || locataire.telephone!.isEmpty) {
+      if (locataire.contact == null || locataire.contact!.isEmpty) {
         return false;
       }
 
@@ -19,7 +39,7 @@ class NotificationService {
       final message = _buildReminderMessage(locataire, releve, cite);
 
       // Simulation d'envoi SMS - dans une vraie app, utiliser un service SMS
-      debugPrint('SMS envoyé à ${locataire.telephone}: $message');
+      debugPrint('SMS envoyé à ${locataire.contact}: $message');
 
       // Enregistrer la notification dans la base
       await _databaseService.insertNotification(
@@ -107,7 +127,7 @@ class NotificationService {
     bool smsResult = false;
     bool emailResult = false;
 
-    if (locataire.telephone != null && locataire.telephone!.isNotEmpty) {
+    if (locataire.contact != null && locataire.contact!.isNotEmpty) {
       smsResult = await sendPaymentReminder(locataire, releve);
     }
 
@@ -152,5 +172,123 @@ Merci de procéder au règlement dans les plus brefs délais.
 Cordialement,
 L'équipe de gestion
 ''';
+  }
+
+  Future<void> showTarifChangeNotification({
+    required String unitName,
+    required double oldTarif,
+    required double newTarif,
+    required String devise,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'tarif_changes',
+      'Changements de tarifs',
+      channelDescription: 'Notifications pour les changements de tarifs',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const iosDetails = DarwinNotificationDetails();
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.show(
+      1,
+      'Changement de tarif',
+      'Le tarif de $unitName a changé de ${oldTarif.toStringAsFixed(2)} à ${newTarif.toStringAsFixed(2)} $devise',
+      details,
+    );
+  }
+
+  Future<void> showTarifUpdateNotification({
+    required String unitName,
+    required double newTarif,
+    required String devise,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'tarif_updates',
+      'Mises à jour de tarifs',
+      channelDescription: 'Notifications pour les mises à jour de tarifs',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+
+    const iosDetails = DarwinNotificationDetails();
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.show(
+      2,
+      'Tarif mis à jour',
+      'Le tarif de $unitName a été mis à jour à ${newTarif.toStringAsFixed(2)} $devise',
+      details,
+    );
+  }
+
+  Future<void> showTarifDeletionNotification({
+    required String unitName,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'tarif_deletions',
+      'Suppressions de tarifs',
+      channelDescription: 'Notifications pour les suppressions de tarifs',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+
+    const iosDetails = DarwinNotificationDetails();
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.show(
+      3,
+      'Tarif supprimé',
+      'Le tarif personnalisé de $unitName a été supprimé. Le tarif de base sera utilisé.',
+      details,
+    );
+  }
+
+  Future<void> showBulkTarifUpdateNotification({
+    required int updatedCount,
+    required String type,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'bulk_tarif_updates',
+      'Mises à jour en masse',
+      channelDescription: 'Notifications pour les mises à jour en masse',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+
+    const iosDetails = DarwinNotificationDetails();
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.show(
+      4,
+      'Mise à jour en masse',
+      '$updatedCount tarifs de type $type ont été mis à jour',
+      details,
+    );
+  }
+
+  Future<void> cancelAllNotifications() async {
+    await _notifications.cancelAll();
+  }
+
+  Future<void> cancelNotification(int id) async {
+    await _notifications.cancel(id);
   }
 }

@@ -2,7 +2,7 @@
     <!-- Permissions pour accéder aux contacts -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <application
-        android:label="rentilax_marker"
+        android:label="Rentilax Tracker"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

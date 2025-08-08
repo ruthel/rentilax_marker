@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../models/consumption_anomaly.dart';
 import '../services/analytics_service.dart';
-import '../services/payment_service.dart';
-import '../services/notification_service.dart';
 
 class EnhancedDashboardScreen extends StatefulWidget {
   const EnhancedDashboardScreen({super.key});
@@ -16,9 +15,9 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
 
-  FinancialAnalytics? _financialAnalytics;
+  RevenueAnalytics? _revenueAnalytics;
+  ConsumptionAnalytics? _consumptionAnalytics;
   List<ConsumptionAnomaly> _anomalies = [];
-  PaymentStats? _paymentStats;
   bool _isLoading = true;
 
   @override
@@ -38,14 +37,16 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
     setState(() => _isLoading = true);
 
     try {
-      final analytics = await AnalyticsService.getFinancialAnalytics();
-      final anomalies = await AnalyticsService.detectAnomalies();
-      final paymentStats = await PaymentService.getPaymentStats();
+      final analyticsService = AnalyticsService();
+      final revenueAnalytics = await analyticsService.getRevenueAnalytics();
+      final consumptionAnalytics =
+          await analyticsService.getConsumptionAnalytics();
+      final anomalies = await analyticsService.detectConsumptionAnomalies();
 
       setState(() {
-        _financialAnalytics = analytics;
+        _revenueAnalytics = revenueAnalytics;
+        _consumptionAnalytics = consumptionAnalytics;
         _anomalies = anomalies;
-        _paymentStats = paymentStats;
         _isLoading = false;
       });
     } catch (e) {
@@ -62,23 +63,17 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tableau de Bord Avancé'),
+        title: const Text('Dashboard Avancé'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(Icons.analytics), text: 'Vue d\'ensemble'),
-            Tab(icon: Icon(Icons.trending_up), text: 'Revenus'),
-            Tab(icon: Icon(Icons.warning), text: 'Alertes'),
-            Tab(icon: Icon(Icons.payment), text: 'Paiements'),
+            Tab(icon: Icon(Icons.dashboard), text: 'Vue d\'ensemble'),
+            Tab(icon: Icon(Icons.attach_money), text: 'Revenus'),
+            Tab(icon: Icon(Icons.water_drop), text: 'Consommation'),
+            Tab(icon: Icon(Icons.warning), text: 'Anomalies'),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadDashboardData,
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -87,106 +82,201 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
               children: [
                 _buildOverviewTab(),
                 _buildRevenueTab(),
-                _buildAlertsTab(),
-                _buildPaymentsTab(),
+                _buildConsumptionTab(),
+                _buildAnomaliesTab(),
               ],
             ),
     );
   }
 
   Widget _buildOverviewTab() {
-    if (_financialAnalytics == null || _paymentStats == null) {
-      return const Center(child: Text('Aucune donnée disponible'));
-    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Vue d\'ensemble',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          _buildKPICards(),
+          const SizedBox(height: 24),
+          _buildQuickStats(),
+        ],
+      ),
+    );
+  }
 
-    return RefreshIndicator(
-      onRefresh: _loadDashboardData,
-      child: SingleChildScrollView(
+  Widget _buildKPICards() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildKPICard(
+            'Revenus Totaux',
+            '${_revenueAnalytics?.totalRevenue.toStringAsFixed(0) ?? '0'} ${_revenueAnalytics?.currency ?? 'FCFA'}',
+            Icons.attach_money,
+            Colors.green,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildKPICard(
+            'Consommation',
+            '${_consumptionAnalytics?.totalConsumption.toStringAsFixed(1) ?? '0'} unités',
+            Icons.water_drop,
+            Colors.blue,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKPICard(String title, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Métriques principales
             Row(
               children: [
-                Expanded(
-                  child: _buildMetricCard(
-                    'Revenus Totaux',
-                    '${_financialAnalytics!.totalRevenue.toStringAsFixed(0)} FCFA',
-                    Icons.account_balance_wallet,
-                    Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildMetricCard(
-                    'Taux de Recouvrement',
-                    '${_financialAnalytics!.collectionRate.toStringAsFixed(1)}%',
-                    Icons.trending_up,
-                    _financialAnalytics!.collectionRate > 80
-                        ? Colors.green
-                        : Colors.orange,
+                Icon(icon, color: color),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickStats() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Statistiques Rapides',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Expanded(
-                  child: _buildMetricCard(
-                    'Relevés Payés',
-                    '${_paymentStats!.paidReleves}/${_paymentStats!.totalReleves}',
-                    Icons.check_circle,
-                    Colors.blue,
-                  ),
+                _buildStatItem(
+                  'Payé',
+                  '${_revenueAnalytics?.paidRevenue.toStringAsFixed(0) ?? '0'}',
+                  Colors.green,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildMetricCard(
-                    'Alertes Actives',
-                    '${_anomalies.length}',
-                    Icons.warning,
-                    _anomalies.isEmpty ? Colors.green : Colors.red,
-                  ),
+                _buildStatItem(
+                  'En attente',
+                  '${_revenueAnalytics?.unpaidRevenue.toStringAsFixed(0) ?? '0'}',
+                  Colors.orange,
+                ),
+                _buildStatItem(
+                  'Anomalies',
+                  '${_anomalies.length}',
+                  Colors.red,
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRevenueTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Analyse des Revenus',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          if (_revenueAnalytics != null) ...[
+            _buildRevenueChart(),
             const SizedBox(height: 24),
+            _buildPaymentStatusChart(),
+          ] else
+            const Center(child: Text('Aucune donnée disponible')),
+        ],
+      ),
+    );
+  }
 
-            // Graphique des revenus mensuels
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Évolution des Revenus',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 200,
-                      child: LineChart(
-                        LineChartData(
-                          gridData: const FlGridData(show: true),
-                          titlesData: const FlTitlesData(show: true),
-                          borderData: FlBorderData(show: true),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: _financialAnalytics!.revenueChartData,
-                              isCurved: true,
-                              color: Colors.blue,
-                              barWidth: 3,
-                              dotData: const FlDotData(show: true),
-                            ),
-                          ],
-                        ),
-                      ),
+  Widget _buildRevenueChart() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Évolution des Revenus',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(show: true),
+                  titlesData: const FlTitlesData(show: true),
+                  borderData: FlBorderData(show: true),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: _revenueAnalytics!.monthlyData
+                          .asMap()
+                          .entries
+                          .map((entry) => FlSpot(
+                                entry.key.toDouble(),
+                                entry.value.value,
+                              ))
+                          .toList(),
+                      isCurved: true,
+                      color: Colors.blue,
+                      barWidth: 3,
                     ),
                   ],
                 ),
@@ -198,128 +288,167 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
     );
   }
 
-  Widget _buildRevenueTab() {
-    if (_financialAnalytics == null) {
-      return const Center(child: Text('Aucune donnée disponible'));
-    }
+  Widget _buildPaymentStatusChart() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Statut des Paiements',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: PieChart(
+                PieChartData(
+                  sections: _revenueAnalytics!.paymentStatusData
+                      .map((data) => PieChartSectionData(
+                            value: data.value,
+                            title: '${data.value.toInt()}',
+                            color: data.label == 'Payé'
+                                ? Colors.green
+                                : Colors.orange,
+                            radius: 60,
+                          ))
+                      .toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _buildConsumptionTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Graphique en secteurs des revenus
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Répartition des Revenus',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 200,
-                    child: PieChart(
-                      PieChartData(
-                        sections: [
-                          PieChartSectionData(
-                            value: _financialAnalytics!.collectedRevenue,
-                            title:
-                                'Encaissé\n${_financialAnalytics!.collectedRevenue.toStringAsFixed(0)}',
-                            color: Colors.green,
-                            radius: 80,
-                          ),
-                          PieChartSectionData(
-                            value: _financialAnalytics!.pendingRevenue,
-                            title:
-                                'En attente\n${_financialAnalytics!.pendingRevenue.toStringAsFixed(0)}',
-                            color: Colors.orange,
-                            radius: 80,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          const Text(
+            'Analyse de Consommation',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-
           const SizedBox(height: 16),
-
-          // Détails mensuels
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Revenus par Mois',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  ..._financialAnalytics!.monthlyRevenue.entries.map(
-                    (entry) => ListTile(
-                      leading: const Icon(Icons.calendar_month),
-                      title: Text(entry.key),
-                      trailing: Text(
-                        '${entry.value.toStringAsFixed(0)} FCFA',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          if (_consumptionAnalytics != null) ...[
+            _buildConsumptionChart(),
+            const SizedBox(height: 24),
+            _buildConsumptionByCiteChart(),
+          ] else
+            const Center(child: Text('Aucune donnée disponible')),
         ],
       ),
     );
   }
 
-  Widget _buildAlertsTab() {
+  Widget _buildConsumptionChart() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Évolution de la Consommation',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: BarChart(
+                BarChartData(
+                  gridData: const FlGridData(show: true),
+                  titlesData: const FlTitlesData(show: true),
+                  borderData: FlBorderData(show: true),
+                  barGroups: _consumptionAnalytics!.monthlyData
+                      .asMap()
+                      .entries
+                      .map((entry) => BarChartGroupData(
+                            x: entry.key,
+                            barRods: [
+                              BarChartRodData(
+                                toY: entry.value.value,
+                                color: Colors.blue,
+                                width: 20,
+                              ),
+                            ],
+                          ))
+                      .toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConsumptionByCiteChart() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Consommation par Cité',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: PieChart(
+                PieChartData(
+                  sections: _consumptionAnalytics!.byCiteData
+                      .map((data) => PieChartSectionData(
+                            value: data.value,
+                            title: data.label,
+                            color: Colors.primaries[_consumptionAnalytics!
+                                    .byCiteData
+                                    .indexOf(data) %
+                                Colors.primaries.length],
+                            radius: 60,
+                          ))
+                      .toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnomaliesTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Alertes de Consommation',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  await NotificationService.scheduleAutomaticReminders();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Rappels envoyés')),
-                  );
-                },
-                icon: const Icon(Icons.send),
-                label: const Text('Envoyer Rappels'),
-              ),
-            ],
+          const Text(
+            'Anomalies de Consommation',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           if (_anomalies.isEmpty)
             const Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green, size: 32),
-                    SizedBox(width: 16),
-                    Text(
-                      'Aucune anomalie détectée',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ],
+                padding: EdgeInsets.all(32),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.check_circle, size: 64, color: Colors.green),
+                      SizedBox(height: 16),
+                      Text(
+                        'Aucune anomalie détectée',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             )
@@ -327,7 +456,7 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
             ..._anomalies.map((anomaly) => Card(
                   child: ListTile(
                     leading: Icon(
-                      anomaly.anomalyType == AnomalyType.highConsumption
+                      anomaly.deviationPercentage > 0
                           ? Icons.trending_up
                           : Icons.trending_down,
                       color: _getAnomalySeverityColor(anomaly.severity),
@@ -336,11 +465,7 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          anomaly.anomalyType == AnomalyType.highConsumption
-                              ? 'Consommation élevée détectée'
-                              : 'Consommation faible détectée',
-                        ),
+                        Text(anomaly.description),
                         Text(
                           'Actuelle: ${anomaly.currentConsumption.toStringAsFixed(2)} | '
                           'Moyenne: ${anomaly.averageConsumption.toStringAsFixed(2)}',
@@ -356,177 +481,6 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
                     ),
                   ),
                 )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentsTab() {
-    if (_paymentStats == null) {
-      return const Center(child: Text('Aucune donnée disponible'));
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Statistiques de Paiement',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Graphique en barres des paiements
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'État des Paiements',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 200,
-                    child: BarChart(
-                      BarChartData(
-                        alignment: BarChartAlignment.spaceAround,
-                        barGroups: [
-                          BarChartGroupData(
-                            x: 0,
-                            barRods: [
-                              BarChartRodData(
-                                toY: _paymentStats!.paidReleves.toDouble(),
-                                color: Colors.green,
-                                width: 40,
-                              ),
-                            ],
-                          ),
-                          BarChartGroupData(
-                            x: 1,
-                            barRods: [
-                              BarChartRodData(
-                                toY: _paymentStats!.unpaidReleves.toDouble(),
-                                color: Colors.red,
-                                width: 40,
-                              ),
-                            ],
-                          ),
-                        ],
-                        titlesData: FlTitlesData(
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              getTitlesWidget: (value, meta) {
-                                switch (value.toInt()) {
-                                  case 0:
-                                    return const Text('Payés');
-                                  case 1:
-                                    return const Text('Impayés');
-                                  default:
-                                    return const Text('');
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Détails des paiements
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildPaymentDetailRow(
-                    'Montant Total',
-                    '${_paymentStats!.totalAmount.toStringAsFixed(0)} FCFA',
-                    Icons.account_balance_wallet,
-                  ),
-                  _buildPaymentDetailRow(
-                    'Montant Encaissé',
-                    '${_paymentStats!.paidAmount.toStringAsFixed(0)} FCFA',
-                    Icons.check_circle,
-                  ),
-                  _buildPaymentDetailRow(
-                    'Montant en Attente',
-                    '${_paymentStats!.unpaidAmount.toStringAsFixed(0)} FCFA',
-                    Icons.pending,
-                  ),
-                  _buildPaymentDetailRow(
-                    'Taux de Recouvrement',
-                    '${_paymentStats!.paymentRate.toStringAsFixed(1)}%',
-                    Icons.trending_up,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricCard(
-      String title, String value, IconData icon, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 24),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentDetailRow(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label)),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
         ],
       ),
     );

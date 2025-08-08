@@ -1,6 +1,6 @@
 {
   "@@locale": "en",
-  "appTitle": "Rentilax Marker",
+  "appTitle": "Rentilax Tracker",
   "@appTitle": {
     "description": "The title of the application"
   },
@@ -189,7 +189,7 @@
   "currentRate": "Current rate",
   "lastModification": "Last modification",
   "about": "About",
-  "appVersion": "Rentilax Marker v1.0.0",
+  "appVersion": "Rentilax Tracker v1.0.0",
   "appDescription": "Consumption reading management application",
   "features": "Features:",
   "manageCitiesTenants": "• Manage cities and tenants",
@@ -288,5 +288,7 @@
         "description": "The number of readings"
       }
     }
-  }
+  },
+  "monthlyStatistics": "Monthly Statistics",
+  "mainMenu": "Main Menu"
 }

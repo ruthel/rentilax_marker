@@ -80,20 +80,13 @@ class _ModernStatsCardState extends State<ModernStatsCard>
           child: FadeTransition(
             opacity: _fadeAnimation,
             child: Container(
-              margin: const EdgeInsets.all(8),
+              margin: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: widget.backgroundColor ?? colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: colorScheme.outline.withOpacity(0.1),
+                  color: colorScheme.outline.withValues(alpha: 0.4),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: Material(
                 color: Colors.transparent,

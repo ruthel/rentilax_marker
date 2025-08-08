@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rentilax_marker/l10n/l10n_extensions.dart';
+import 'package:rentilax_tracker/l10n/l10n_extensions.dart';
 import '../services/pin_service.dart';
 
 class PinSettingsScreen extends StatefulWidget {

@@ -2,7 +2,7 @@ class Locataire {
   final int? id;
   final String nom;
   final String prenom;
-  final String? telephone;
+  final String? contact;
   final String? email;
   final int citeId;
   final String numeroLogement;
@@ -13,7 +13,7 @@ class Locataire {
     this.id,
     required this.nom,
     required this.prenom,
-    this.telephone,
+    this.contact,
     this.email,
     required this.citeId,
     required this.numeroLogement,
@@ -26,7 +26,7 @@ class Locataire {
       'id': id,
       'nom': nom,
       'prenom': prenom,
-      'telephone': telephone,
+      'telephone': contact,
       'email': email,
       'citeId': citeId,
       'numeroLogement': numeroLogement,
@@ -40,7 +40,7 @@ class Locataire {
       id: map['id'],
       nom: map['nom'],
       prenom: map['prenom'],
-      telephone: map['telephone'],
+      contact: map['telephone'],
       email: map['email'],
       citeId: map['citeId'],
       numeroLogement: map['numeroLogement'],
