@@ -110,7 +110,7 @@ class BackupService {
       final backupData = await _readBackupFile(backupFile, password: password);
 
       // Valider les données
-      final validationResult = await _validateBackupData(backupData);
+      final validationResult = _validateBackupData(backupData);
       if (!validationResult.isValid) {
         return RestoreResult.error(
             'Données de backup invalides: ${validationResult.error}');

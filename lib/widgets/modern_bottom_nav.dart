@@ -90,7 +90,7 @@ class _ModernBottomNavBarState extends State<ModernBottomNavBar>
         color: widget.backgroundColor ?? colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: widget.elevation,
             offset: const Offset(0, -2),
           ),
@@ -121,7 +121,8 @@ class _ModernBottomNavBarState extends State<ModernBottomNavBar>
                           color: isSelected
                               ? (widget.selectedItemColor ??
                                       colorScheme.primary)
-                                  .withOpacity(0.1 * _animations[index].value)
+                                  .withValues(
+                                      alpha: 0.1 * _animations[index].value)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -251,7 +252,7 @@ class _ModernFloatingBottomNavBarState extends State<ModernFloatingBottomNavBar>
           borderRadius: BorderRadius.circular(widget.borderRadius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -276,7 +277,7 @@ class _ModernFloatingBottomNavBarState extends State<ModernFloatingBottomNavBar>
                   decoration: BoxDecoration(
                     color: isSelected
                         ? (widget.selectedItemColor ?? colorScheme.primary)
-                            .withOpacity(0.1)
+                            .withValues(alpha: 0.1)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),

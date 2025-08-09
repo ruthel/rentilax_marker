@@ -89,12 +89,12 @@ class _ModernListTileState extends State<ModernListTile>
                 border: widget.showBorder
                     ? Border.all(
                         color: widget.borderColor ??
-                            colorScheme.outline.withOpacity(0.2),
+                            colorScheme.outline.withValues(alpha: 0.2),
                       )
                     : null,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -127,7 +127,8 @@ class _ModernListTileState extends State<ModernListTile>
                                   fontWeight: FontWeight.w600,
                                   color: widget.enabled
                                       ? colorScheme.onSurface
-                                      : colorScheme.onSurface.withOpacity(0.6),
+                                      : colorScheme.onSurface
+                                          .withValues(alpha: 0.6),
                                 ),
                               ),
                               if (widget.subtitle != null) ...[
@@ -138,7 +139,7 @@ class _ModernListTileState extends State<ModernListTile>
                                     color: widget.enabled
                                         ? colorScheme.onSurfaceVariant
                                         : colorScheme.onSurfaceVariant
-                                            .withOpacity(0.6),
+                                            .withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -255,11 +256,11 @@ class _ModernExpansionTileState extends State<ModernExpansionTile>
             : (widget.collapsedBackgroundColor ?? colorScheme.surface),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.outline.withOpacity(0.2),
+          color: colorScheme.outline.withValues(alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

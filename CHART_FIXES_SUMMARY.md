@@ -47,7 +47,7 @@ horizontalInterval: maxY > 0 ? maxY / 5 : 1.0,
 #### **4. Dashboard - Méthode dépréciée**
 ```dart
 // AVANT (déprécié)
-.withOpacity(0.2)
+.withValues(alpha: 0.2)
 
 // APRÈS (moderne)
 .withValues(alpha: 0.2)

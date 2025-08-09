@@ -99,11 +99,14 @@ class AnalyticsService {
       final citeLocataires =
           locataires.where((l) => l.citeId == cite.id).toList();
       final citeReleves = releves.where((r) {
-        final locataire = locataires.firstWhere(
-          (l) => l.id == r.locataireId,
-          orElse: () => locataires.first,
-        );
-        return locataire.citeId == cite.id;
+        try {
+          final locataire = locataires.firstWhere(
+            (l) => l.id == r.locataireId,
+          );
+          return locataire.citeId == cite.id;
+        } catch (e) {
+          return false;
+        }
       }).toList();
 
       final totalRevenue = citeReleves.fold(0.0, (sum, r) => sum + r.montant);
@@ -224,12 +227,16 @@ class AnalyticsService {
     final citeConsumption = <int, double>{};
 
     for (final releve in releves) {
-      final locataire = locataires.firstWhere(
-        (l) => l.id == releve.locataireId,
-        orElse: () => locataires.first,
-      );
-      citeConsumption[locataire.citeId] =
-          (citeConsumption[locataire.citeId] ?? 0) + releve.consommation;
+      try {
+        final locataire = locataires.firstWhere(
+          (l) => l.id == releve.locataireId,
+        );
+        citeConsumption[locataire.citeId] =
+            (citeConsumption[locataire.citeId] ?? 0) + releve.consommation;
+      } catch (e) {
+        // Ignorer les relevés sans locataire correspondant
+        continue;
+      }
     }
 
     return citeConsumption.entries.map((entry) {
@@ -323,8 +330,17 @@ class AnalyticsService {
   double _calculateTrend(List<double> values) {
     if (values.length < 2) return 0.0;
 
-    final recent = values.sublist(values.length - 3);
-    final older = values.sublist(0, values.length - 3);
+    // S'assurer qu'on a assez de données pour faire une comparaison
+    if (values.length < 6) {
+      // Pour les petites listes, comparer simplement la première et dernière valeur
+      final first = values.first;
+      final last = values.last;
+      return first == 0 ? 0.0 : ((last - first) / first) * 100;
+    }
+
+    final recentCount = (values.length / 2).floor().clamp(1, 3);
+    final recent = values.sublist(values.length - recentCount);
+    final older = values.sublist(0, values.length - recentCount);
 
     if (older.isEmpty) return 0.0;
 
@@ -338,7 +354,12 @@ class AnalyticsService {
     if (values.length < 3) return values.isEmpty ? 0.0 : values.last;
 
     // Simple linear regression pour prédiction
-    final recent = values.sublist(values.length - 6);
+    final recentCount = (values.length).clamp(1, 6);
+    final startIndex = (values.length - recentCount).clamp(0, values.length);
+    final recent = values.sublist(startIndex);
+
+    if (recent.isEmpty) return values.last;
+
     final sum = recent.reduce((a, b) => a + b);
     final avg = sum / recent.length;
 
@@ -401,16 +422,20 @@ class AnalyticsService {
     // Analyser chaque locataire
     for (final entry in relevesByLocataire.entries) {
       final locataireReleves = entry.value;
-      final locataire = locataires.firstWhere(
-        (l) => l.id == entry.key,
-        orElse: () => locataires.first,
-      );
+      final locataireIndex = locataires.indexWhere((l) => l.id == entry.key);
+      if (locataireIndex == -1) continue;
+
+      final locataire = locataires[locataireIndex];
 
       if (locataireReleves.length < 3) continue; // Pas assez de données
 
       // Calculer la moyenne historique (exclure le dernier relevé)
-      final historicalReleves =
-          locataireReleves.sublist(0, locataireReleves.length - 1);
+      final endIndex =
+          (locataireReleves.length - 1).clamp(0, locataireReleves.length);
+      final historicalReleves = locataireReleves.sublist(0, endIndex);
+
+      if (historicalReleves.isEmpty) continue;
+
       final averageConsumption =
           historicalReleves.fold(0.0, (sum, r) => sum + r.consommation) /
               historicalReleves.length;

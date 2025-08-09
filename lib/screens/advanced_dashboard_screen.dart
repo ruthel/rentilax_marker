@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:rentilax_tracker/l10n/l10n_extensions.dart';
 import '../services/analytics_service.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/advanced_charts.dart';
@@ -134,9 +133,16 @@ class _AdvancedDashboardScreenState extends State<AdvancedDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final localizations = context.l10n;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    // Vérification de sécurité pour éviter les erreurs null
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Dashboard Analytics')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       extendBody: true,
@@ -604,7 +610,7 @@ class _AdvancedDashboardScreenState extends State<AdvancedDashboardScreen>
             width: 150,
             child: _buildKPICard(
               'Taux de paiement',
-              '${_revenueAnalytics?.totalRevenue == 0 ? 0 : ((_revenueAnalytics!.paidRevenue / _revenueAnalytics!.totalRevenue) * 100).toStringAsFixed(1)}%',
+              '${_calculatePaymentRate()}%',
               Icons.percent_rounded,
               colorScheme.primary,
               null,
@@ -668,8 +674,7 @@ class _AdvancedDashboardScreenState extends State<AdvancedDashboardScreen>
               'Tendance revenus',
               '${(_predictionAnalytics?.revenueTrend ?? 0).toStringAsFixed(1)}%',
               Icons.trending_up_rounded,
-              _predictionAnalytics?.revenueTrend != null &&
-                      _predictionAnalytics!.revenueTrend >= 0
+              (_predictionAnalytics?.revenueTrend ?? 0) >= 0
                   ? Colors.green
                   : Colors.red,
               null,
@@ -702,6 +707,11 @@ class _AdvancedDashboardScreenState extends State<AdvancedDashboardScreen>
 
   Widget _buildCitePerformanceSection() {
     final theme = Theme.of(context);
+    final citePerformance = _citeAnalytics?.citePerformance ?? [];
+
+    if (citePerformance.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -713,7 +723,7 @@ class _AdvancedDashboardScreenState extends State<AdvancedDashboardScreen>
           ),
         ),
         const SizedBox(height: 16),
-        ...(_citeAnalytics?.citePerformance ?? []).asMap().entries.map((entry) {
+        ...citePerformance.asMap().entries.map((entry) {
           final index = entry.key;
           final performance = entry.value;
 
@@ -826,12 +836,22 @@ class _AdvancedDashboardScreenState extends State<AdvancedDashboardScreen>
 
   Widget _buildTopTenantsSection() {
     final theme = Theme.of(context);
-    final topTenants = (_tenantAnalytics?.paymentReliability ?? [])
+    final paymentReliability = _tenantAnalytics?.paymentReliability ?? [];
+
+    if (paymentReliability.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final topTenants = paymentReliability
         .where((t) => t.totalReleves > 0)
         .toList()
       ..sort((a, b) => b.reliabilityScore.compareTo(a.reliabilityScore));
 
     final displayTenants = topTenants.take(5).toList();
+
+    if (displayTenants.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -953,5 +973,15 @@ class _AdvancedDashboardScreenState extends State<AdvancedDashboardScreen>
     if (score >= 90) return Colors.green;
     if (score >= 70) return Colors.orange;
     return Colors.red;
+  }
+
+  String _calculatePaymentRate() {
+    if (_revenueAnalytics == null || _revenueAnalytics!.totalRevenue == 0) {
+      return '0.0';
+    }
+    final rate =
+        (_revenueAnalytics!.paidRevenue / _revenueAnalytics!.totalRevenue) *
+            100;
+    return rate.toStringAsFixed(1);
   }
 }

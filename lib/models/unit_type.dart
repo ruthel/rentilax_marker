@@ -51,7 +51,7 @@ class ConsumptionUnit {
       'type': type.id,
       'conversion_factor': conversionFactor,
       'is_default': isDefault ? 1 : 0,
-      'date_creation': dateCreation.millisecondsSinceEpoch,
+      'date_creation': dateCreation.toIso8601String(),
     };
   }
 
@@ -64,9 +64,11 @@ class ConsumptionUnit {
       type: UnitType.fromId(map['type'] ?? 'water'),
       conversionFactor: map['conversion_factor']?.toDouble() ?? 1.0,
       isDefault: (map['is_default'] ?? 0) == 1,
-      dateCreation: DateTime.fromMillisecondsSinceEpoch(
-        map['date_creation'] ?? DateTime.now().millisecondsSinceEpoch,
-      ),
+      dateCreation: map['date_creation'] is String
+          ? DateTime.parse(map['date_creation'])
+          : DateTime.fromMillisecondsSinceEpoch(
+              map['date_creation'] ?? DateTime.now().millisecondsSinceEpoch,
+            ),
     );
   }
 

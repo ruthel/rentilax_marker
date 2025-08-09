@@ -183,12 +183,12 @@ class _EnhancedDashboardScreenState extends State<EnhancedDashboardScreen>
               children: [
                 _buildStatItem(
                   'Payé',
-                  '${_revenueAnalytics?.paidRevenue.toStringAsFixed(0) ?? '0'}',
+                  _revenueAnalytics?.paidRevenue.toStringAsFixed(0) ?? '0',
                   Colors.green,
                 ),
                 _buildStatItem(
                   'En attente',
-                  '${_revenueAnalytics?.unpaidRevenue.toStringAsFixed(0) ?? '0'}',
+                  _revenueAnalytics?.unpaidRevenue.toStringAsFixed(0) ?? '0',
                   Colors.orange,
                 ),
                 _buildStatItem(

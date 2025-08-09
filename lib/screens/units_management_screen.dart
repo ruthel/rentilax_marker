@@ -110,7 +110,7 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen>
   }
 
   Widget _buildUnitsTab(UnitType type, List<ConsumptionUnit> units) {
-    final theme = Theme.of(context);
+    Theme.of(context);
 
     if (units.isEmpty) {
       return _buildEmptyState(type);

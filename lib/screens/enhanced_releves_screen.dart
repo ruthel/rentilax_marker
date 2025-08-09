@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:rentilax_tracker/l10n/l10n_extensions.dart';
 import 'package:rentilax_tracker/models/unit_type.dart';
+import 'package:rentilax_tracker/screens/payment_management_screen.dart';
 import 'package:rentilax_tracker/services/tarif_service.dart';
 import 'package:rentilax_tracker/services/unit_service.dart';
 import '../models/cite.dart';
@@ -16,8 +17,7 @@ import '../widgets/animated_list_item.dart';
 import '../widgets/enhanced_card.dart';
 import '../widgets/filter_bottom_sheet.dart';
 import '../widgets/enhanced_snackbar.dart';
-
-import 'payment_management_screen.dart';
+import 'releve_detail_screen.dart';
 
 class EnhancedRelevesScreen extends StatefulWidget {
   const EnhancedRelevesScreen({super.key});
@@ -132,12 +132,16 @@ class _EnhancedRelevesScreenState extends State<EnhancedRelevesScreen>
 
         // Filtre par statut de paiement
         if (_activeFilters['payment_status'] != null) {
-          if (_activeFilters['payment_status'] == 'paid' && !releve.isPaid)
+          if (_activeFilters['payment_status'] == 'paid' && !releve.isPaid) {
             return false;
-          if (_activeFilters['payment_status'] == 'unpaid' && releve.isPaid)
+          }
+          if (_activeFilters['payment_status'] == 'unpaid' && releve.isPaid) {
             return false;
+          }
           if (_activeFilters['payment_status'] == 'partial' &&
-              !releve.isPartiallyPaid) return false;
+              !releve.isPartiallyPaid) {
+            return false;
+          }
         }
 
         // Filtre par cité
@@ -291,9 +295,13 @@ class _EnhancedRelevesScreenState extends State<EnhancedRelevesScreen>
     if (_activeFilters['payment_status'] != null) count++;
     if (_activeFilters['cite_id'] != null) count++;
     if (_activeFilters['month_start'] != null ||
-        _activeFilters['month_end'] != null) count++;
+        _activeFilters['month_end'] != null) {
+      count++;
+    }
     if (_activeFilters['amount_min'] != null ||
-        _activeFilters['amount_max'] != null) count++;
+        _activeFilters['amount_max'] != null) {
+      count++;
+    }
     return count;
   }
 
@@ -704,7 +712,16 @@ class _EnhancedRelevesScreenState extends State<EnhancedRelevesScreen>
           } else if (value == 'toggle_payment') {
             _togglePaymentStatus(releve);
           } else if (value == 'view') {
-            _showReleveDetails(releve);
+            if (releve.id != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ReleveDetailScreen(
+                    releveId: releve.id!,
+                  ),
+                ),
+              );
+            }
           } else if (value == 'edit') {
             _showReleveDialog(releve);
           } else if (value == 'delete') {
@@ -712,7 +729,18 @@ class _EnhancedRelevesScreenState extends State<EnhancedRelevesScreen>
           }
         },
       ),
-      onTap: () => _showReleveDetails(releve),
+      onTap: () {
+        if (releve.id != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ReleveDetailScreen(
+                releveId: releve.id!,
+              ),
+            ),
+          );
+        }
+      },
     );
   }
 
@@ -1291,14 +1319,6 @@ class _EnhancedRelevesScreenState extends State<EnhancedRelevesScreen>
     );
   }
 
-  void _showReleveDetails(Releve releve) {
-    // TODO: Implémenter l'affichage des détails
-    EnhancedSnackBar.showInfo(
-      context: context,
-      message: 'Détails du relevé - En cours de développement',
-    );
-  }
-
   Future<void> _navigateToPaymentManagement(Releve releve) async {
     final locataire = _getLocataire(releve.locataireId);
 
@@ -1318,19 +1338,380 @@ class _EnhancedRelevesScreenState extends State<EnhancedRelevesScreen>
     }
   }
 
+  Future<void> _updatePaymentStatus(Releve releve) async {
+    try {
+      if (releve.isPaid) {
+        // Marquer comme non payé - réinitialiser le statut mais garder l'historique
+        await _databaseService.updatePaymentStatus(
+          releve.id!,
+          false,
+          null,
+        );
+      } else {
+        // Marquer comme entièrement payé
+        await _databaseService.updatePaymentStatus(
+          releve.id!,
+          true,
+          DateTime.now(),
+        );
+
+        // Mettre à jour le montant payé pour qu'il corresponde au montant total
+        await _databaseService.updatePaymentAmount(
+          releve.id!,
+          releve.montant,
+          true,
+          DateTime.now(),
+        );
+      }
+
+      // Recharger les données
+      await _loadData();
+
+      // Afficher un message de succès
+      if (mounted) {
+        EnhancedSnackBar.showSuccess(
+          context: context,
+          message: releve.isPaid
+              ? 'Relevé marqué comme non payé'
+              : 'Relevé marqué comme payé',
+        );
+      }
+    } catch (e) {
+      // Afficher un message d'erreur
+      if (mounted) {
+        EnhancedSnackBar.showError(
+          context: context,
+          message: 'Erreur lors de la mise à jour : $e',
+        );
+      }
+    }
+  }
+
   void _togglePaymentStatus(Releve releve) {
-    // TODO: Implémenter le changement de statut
-    EnhancedSnackBar.showInfo(
+    final localizations = context.l10n;
+    final locataire = _getLocataire(releve.locataireId);
+
+    showDialog(
       context: context,
-      message: 'Changement de statut - En cours de développement',
+      builder: (context) => AlertDialog(
+        title: Text(
+          releve.isPaid ? 'Marquer comme non payé' : 'Marquer comme payé',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              releve.isPaid
+                  ? 'Êtes-vous sûr de vouloir marquer ce relevé comme non payé ?'
+                  : 'Êtes-vous sûr de vouloir marquer ce relevé comme entièrement payé ?',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${locataire.prenom} ${locataire.nom}',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Montant: ${releve.montant.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}',
+                  ),
+                  Text(
+                    'Période: ${DateFormat('MMMM yyyy', 'fr_FR').format(releve.moisReleve)}',
+                  ),
+                ],
+              ),
+            ),
+            if (releve.isPaid && releve.paidAmount > 0) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border:
+                      Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_outlined,
+                        color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Ce relevé a un historique de paiements (${releve.paidAmount.toStringAsFixed(2)} FCFA). Marquer comme non payé réinitialisera le statut mais conservera l\'historique.',
+                        style: TextStyle(
+                          color: Colors.orange.shade700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(localizations.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _updatePaymentStatus(releve);
+            },
+            child: Text(
+              releve.isPaid ? 'Marquer non payé' : 'Marquer payé',
+            ),
+          ),
+        ],
+      ),
     );
   }
 
+  Future<void> _deleteReleve(Releve releve) async {
+    try {
+      // Afficher un indicateur de chargement
+      // Afficher un indicateur de chargement
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text('Suppression en cours...'),
+              ],
+            ),
+            duration: Duration(seconds: 3),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
+      // Supprimer le relevé de la base de données
+      await _databaseService.deleteReleve(releve.id!);
+
+      // Recharger les données
+      await _loadData();
+
+      // Afficher un message de succès
+      if (mounted) {
+        EnhancedSnackBar.showSuccess(
+          context: context,
+          message: 'Relevé supprimé avec succès',
+        );
+      }
+    } catch (e) {
+      // Afficher un message d'erreur
+      if (mounted) {
+        EnhancedSnackBar.showError(
+          context: context,
+          message: 'Erreur lors de la suppression : $e',
+        );
+      }
+    }
+  }
+
   void _confirmDelete(Releve releve) {
-    // TODO: Implémenter la confirmation de suppression
-    EnhancedSnackBar.showInfo(
+    final localizations = context.l10n;
+    final locataire = _getLocataire(releve.locataireId);
+    final citeNom = _getCiteNom(locataire.citeId);
+
+    showDialog(
       context: context,
-      message: 'Suppression - En cours de développement',
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_rounded,
+              color: Colors.red,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Confirmer la suppression',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Êtes-vous sûr de vouloir supprimer ce relevé ?',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.person, size: 16, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${locataire.prenom} ${locataire.nom}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.location_city, size: 16, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$citeNom - Logement ${locataire.numeroLogement}',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_month, size: 16, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat('MMMM yyyy', 'fr_FR')
+                            .format(releve.moisReleve),
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.attach_money, size: 16, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${releve.montant.toStringAsFixed(2)} ${_configuration?.devise ?? 'FCFA'}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Cette action est irréversible. Toutes les données associées à ce relevé seront définitivement perdues.',
+                      style: TextStyle(
+                        color: Colors.orange.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (releve.isPaid || releve.paidAmount > 0) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Attention : Ce relevé contient des informations de paiement (${releve.paidAmount.toStringAsFixed(2)} FCFA payés). L\'historique des paiements sera également supprimé.',
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              localizations.cancel,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteReleve(releve);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.delete_forever, size: 18),
+                const SizedBox(width: 8),
+                Text('Supprimer'),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

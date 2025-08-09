@@ -3,10 +3,12 @@ import 'package:intl/intl.dart';
 import '../services/backup_service.dart';
 import '../services/export_service.dart';
 import '../services/import_service.dart';
+import '../services/google_drive_service.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/enhanced_card.dart';
 import '../widgets/animated_list_item.dart';
 import '../widgets/section_title.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class BackupSyncScreen extends StatefulWidget {
   const BackupSyncScreen({super.key});
@@ -25,14 +27,21 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
 
   List<BackupInfo> _backups = [];
   List<ExportInfo> _exports = [];
+  List<GoogleDriveBackupInfo> _googleDriveBackups = [];
   bool _isLoading = false;
   bool _autoBackupEnabled = false;
   AutoBackupFrequency _backupFrequency = AutoBackupFrequency.daily;
 
+  // Google Drive
+  GoogleSignInAccount? _googleAccount;
+  bool _isGoogleSignedIn = false;
+  bool _googleSyncEnabled = false;
+  LastBackupInfo? _lastGoogleBackup;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadData();
   }
 
@@ -49,6 +58,9 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
       final backups = await _backupService.getAvailableBackups();
       final exports = await _exportService.getAvailableExports();
 
+      // Charger les données Google Drive
+      await _loadGoogleDriveData();
+
       setState(() {
         _backups = backups;
         _exports = exports;
@@ -64,9 +76,22 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
     }
   }
 
+  Future<void> _loadGoogleDriveData() async {
+    try {
+      _isGoogleSignedIn = await GoogleDriveService.isSignedIn();
+      if (_isGoogleSignedIn) {
+        _googleAccount = await GoogleDriveService.getCurrentAccount();
+        _googleDriveBackups = await GoogleDriveService.listBackups();
+        _lastGoogleBackup = await GoogleDriveService.getLastBackupInfo();
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des données Google Drive: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    Theme.of(context);
 
     return Scaffold(
       appBar: ModernAppBar(
@@ -75,6 +100,7 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
           controller: _tabController,
           tabs: const [
             Tab(icon: Icon(Icons.backup), text: 'Backup'),
+            Tab(icon: Icon(Icons.cloud), text: 'Google Drive'),
             Tab(icon: Icon(Icons.file_download), text: 'Export'),
             Tab(icon: Icon(Icons.file_upload), text: 'Import'),
           ],
@@ -86,6 +112,7 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
               controller: _tabController,
               children: [
                 _buildBackupTab(),
+                _buildGoogleDriveTab(),
                 _buildExportTab(),
                 _buildImportTab(),
               ],
@@ -112,132 +139,6 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
             // Liste des backups
             SectionTitle(text: 'Backups Disponibles'),
             _buildBackupsList(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return EnhancedCard(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Actions Rapides',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildActionButton(
-                    icon: Icons.backup,
-                    label: 'Backup Complet',
-                    color: Colors.blue,
-                    onPressed: _createFullBackup,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildActionButton(
-                    icon: Icons.update,
-                    label: 'Backup Incrémental',
-                    color: Colors.green,
-                    onPressed: _createIncrementalBackup,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildActionButton(
-                    icon: Icons.restore,
-                    label: 'Restaurer',
-                    color: Colors.orange,
-                    onPressed: _showRestoreDialog,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildActionButton(
-                    icon: Icons.cloud_sync,
-                    label: 'Sync Cloud',
-                    color: Colors.purple,
-                    onPressed: _syncToCloud,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 20),
-      label: Text(
-        label,
-        style: const TextStyle(fontSize: 12),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color.withValues(alpha: 0.1),
-        foregroundColor: color,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAutoBackupSettings() {
-    return EnhancedCard(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Backup Automatique',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text('Activer le backup automatique'),
-              subtitle: const Text(
-                  'Sauvegarde automatique selon la fréquence choisie'),
-              value: _autoBackupEnabled,
-              onChanged: (value) {
-                setState(() => _autoBackupEnabled = value);
-                _configureAutoBackup();
-              },
-            ),
-            if (_autoBackupEnabled) ...[
-              const Divider(),
-              ListTile(
-                title: const Text('Fréquence'),
-                subtitle: Text(_getFrequencyText(_backupFrequency)),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: _showFrequencyDialog,
-              ),
-            ],
           ],
         ),
       ),
@@ -381,104 +282,6 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
             SectionTitle(text: 'Exports Récents'),
             _buildExportsList(),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExportTypes() {
-    return EnhancedCard(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Types d\'Export',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-
-            // Rapports PDF
-            _buildExportSection(
-              title: 'Rapports PDF',
-              icon: Icons.picture_as_pdf,
-              color: Colors.red,
-              items: [
-                _buildExportItem('Rapport Mensuel', Icons.calendar_month,
-                    () => _exportMonthlyReport()),
-                _buildExportItem('Rapport Annuel', Icons.calendar_today,
-                    () => _exportAnnualReport()),
-                _buildExportItem('Rapport Personnalisé', Icons.tune,
-                    () => _exportCustomReport()),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Données Excel/CSV
-            _buildExportSection(
-              title: 'Données Excel/CSV',
-              icon: Icons.table_chart,
-              color: Colors.green,
-              items: [
-                _buildExportItem('Tous les Relevés', Icons.receipt,
-                    () => _exportAllReleves()),
-                _buildExportItem('Tous les Locataires', Icons.people,
-                    () => _exportAllLocataires()),
-                _buildExportItem('Données Financières', Icons.attach_money,
-                    () => _exportFinancialData()),
-                _buildExportItem('Analyse Consommation', Icons.analytics,
-                    () => _exportConsumptionAnalysis()),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExportSection({
-    required String title,
-    required IconData icon,
-    required Color color,
-    required List<Widget> items,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ...items,
-      ],
-    );
-  }
-
-  Widget _buildExportItem(String title, IconData icon, VoidCallback onPressed) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon, size: 20),
-        title: Text(title),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onPressed,
-        dense: true,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );
@@ -664,136 +467,10 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
 
   // Actions des backups
 
-  Future<void> _createFullBackup() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _backupService.createFullBackup();
-
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Backup créé avec succès: ${result.fileName}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _loadData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${result.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _createIncrementalBackup() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _backupService.createIncrementalBackup();
-
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(result.message ?? 'Backup incrémental créé avec succès'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _loadData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${result.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _showRestoreDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Restaurer un Backup'),
-        content: const Text(
-          'Sélectionnez un backup à restaurer. Cette opération remplacera toutes les données actuelles.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implémenter la sélection et restauration
-            },
-            child: const Text('Continuer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _syncToCloud() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Synchronisation cloud en cours de développement...'),
-      ),
-    );
-  }
-
   Future<void> _configureAutoBackup() async {
     await _backupService.configureAutoBackup(
       enabled: _autoBackupEnabled,
       frequency: _backupFrequency,
-    );
-  }
-
-  void _showFrequencyDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Fréquence de Backup'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: AutoBackupFrequency.values.map((frequency) {
-            return RadioListTile<AutoBackupFrequency>(
-              title: Text(_getFrequencyText(frequency)),
-              value: frequency,
-              groupValue: _backupFrequency,
-              onChanged: (value) {
-                setState(() => _backupFrequency = value!);
-                Navigator.pop(context);
-                _configureAutoBackup();
-              },
-            );
-          }).toList(),
-        ),
-      ),
     );
   }
 
@@ -920,233 +597,6 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
   }
 
   // Actions des exports
-
-  Future<void> _exportMonthlyReport() async {
-    final now = DateTime.now();
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _exportService.exportMonthlyReportToPDF(
-        month: now.month,
-        year: now.year,
-      );
-
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Rapport exporté: ${result.fileName}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _loadData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${result.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _exportAnnualReport() async {
-    final now = DateTime.now();
-    setState(() => _isLoading = true);
-
-    try {
-      final result =
-          await _exportService.exportAnnualReportToPDF(year: now.year);
-
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Rapport annuel exporté: ${result.fileName}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _loadData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${result.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _exportCustomReport() {
-    // TODO: Implémenter l'export de rapport personnalisé
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Rapport personnalisé en cours de développement...')),
-    );
-  }
-
-  Future<void> _exportAllReleves() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _exportService.exportToExcel(
-        type: ExcelExportType.allReleves,
-      );
-
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Relevés exportés: ${result.fileName}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _loadData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${result.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _exportAllLocataires() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _exportService.exportToExcel(
-        type: ExcelExportType.allLocataires,
-      );
-
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Locataires exportés: ${result.fileName}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _loadData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${result.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _exportFinancialData() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _exportService.exportToExcel(
-        type: ExcelExportType.financialData,
-      );
-
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Données financières exportées: ${result.fileName}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _loadData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${result.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _exportConsumptionAnalysis() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _exportService.exportToExcel(
-        type: ExcelExportType.consumptionAnalysis,
-      );
-
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('Analyse de consommation exportée: ${result.fileName}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _loadData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${result.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
 
   void _handleExportAction(String action, ExportInfo export) {
     switch (action) {
@@ -1280,5 +730,740 @@ class _BackupSyncScreenState extends State<BackupSyncScreen>
       case ExportFormat.csv:
         return Colors.blue;
     }
+  }
+
+  Widget _buildGoogleDriveTab() {
+    return RefreshIndicator(
+      onRefresh: _loadGoogleDriveData,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section de connexion Google
+            _buildGoogleConnectionSection(),
+
+            const SizedBox(height: 24),
+
+            // Section de sauvegarde Google Drive
+            if (_isGoogleSignedIn) ...[
+              _buildGoogleBackupSection(),
+
+              const SizedBox(height: 24),
+
+              // Liste des sauvegardes Google Drive
+              _buildGoogleBackupsList(),
+
+              const SizedBox(height: 24),
+
+              // Configuration de synchronisation automatique
+              _buildAutoSyncSection(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoogleConnectionSection() {
+    return EnhancedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.cloud,
+                  color: Colors.blue,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Google Drive',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    Text(
+                      _isGoogleSignedIn
+                          ? 'Connecté en tant que ${_googleAccount?.email ?? "Utilisateur"}'
+                          : 'Connectez-vous pour sauvegarder sur Google Drive',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_isGoogleSignedIn) ...[
+            // Informations du compte connecté
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundImage: _googleAccount?.photoUrl != null
+                        ? NetworkImage(_googleAccount!.photoUrl!)
+                        : null,
+                    child: _googleAccount?.photoUrl == null
+                        ? Icon(Icons.person)
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _googleAccount?.displayName ?? 'Utilisateur Google',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          _googleAccount?.email ?? '',
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _signOutFromGoogle,
+                    icon: Icon(Icons.logout, size: 16),
+                    label: Text('Déconnecter'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (_lastGoogleBackup != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.backup, color: Colors.blue, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Dernière sauvegarde : ${DateFormat('dd/MM/yyyy HH:mm').format(_lastGoogleBackup!.timestamp)}',
+                        style: TextStyle(
+                          color: Colors.blue.shade700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ] else ...[
+            // Bouton de connexion
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _signInToGoogle,
+                icon: Icon(Icons.login),
+                label: Text('Se connecter à Google Drive'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoogleBackupSection() {
+    return EnhancedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Sauvegarde Google Drive',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _backupToGoogleDrive,
+                  icon: Icon(Icons.cloud_upload),
+                  label: Text('Sauvegarder maintenant'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _performGoogleSync,
+                  icon: Icon(Icons.sync),
+                  label: Text('Synchroniser'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoogleBackupsList() {
+    return EnhancedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Sauvegardes disponibles',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              TextButton.icon(
+                onPressed: _loadGoogleDriveData,
+                icon: Icon(Icons.refresh, size: 16),
+                label: Text('Actualiser'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_googleDriveBackups.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.cloud_off,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Aucune sauvegarde trouvée',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Créez votre première sauvegarde Google Drive',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...(_googleDriveBackups.asMap().entries.map((entry) {
+              final index = entry.key;
+              final backup = entry.value;
+              return AnimatedListItem(
+                index: index,
+                child: _buildGoogleDriveBackupItem(backup),
+              );
+            })),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoogleDriveBackupItem(GoogleDriveBackupInfo backup) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.cloud, color: Colors.blue, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  backup.name,
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.schedule, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      DateFormat('dd/MM/yyyy HH:mm').format(backup.createdTime),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(Icons.storage, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      backup.formattedSize,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'restore',
+                child: Row(
+                  children: [
+                    Icon(Icons.restore, size: 18, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text('Restaurer'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 18, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Text('Supprimer'),
+                  ],
+                ),
+              ),
+            ],
+            onSelected: (value) {
+              if (value == 'restore') {
+                _restoreFromGoogleDrive(backup);
+              } else if (value == 'delete') {
+                _deleteGoogleBackup(backup);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAutoSyncSection() {
+    return EnhancedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Synchronisation automatique',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            title: Text('Activer la synchronisation automatique'),
+            subtitle: Text('Sauvegarde automatique sur Google Drive'),
+            value: _googleSyncEnabled,
+            onChanged: (value) {
+              setState(() => _googleSyncEnabled = value);
+              _configureAutoSync();
+            },
+          ),
+          if (_googleSyncEnabled) ...[
+            const Divider(),
+            ListTile(
+              title: Text('Fréquence de synchronisation'),
+              subtitle: Text('Quotidienne'),
+              trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _showSyncFrequencyDialog,
+            ),
+            ListTile(
+              title: Text('Synchroniser uniquement en Wi-Fi'),
+              trailing: Switch(
+                value: true,
+                onChanged: (value) {
+                  // TODO: Implémenter la configuration Wi-Fi uniquement
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Méthodes Google Drive
+  Future<void> _signInToGoogle() async {
+    try {
+      final account = await GoogleDriveService.signIn();
+      if (account != null) {
+        await _loadGoogleDriveData();
+        setState(() {});
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Connecté à Google Drive avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la connexion: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _signOutFromGoogle() async {
+    try {
+      await GoogleDriveService.signOut();
+      await _loadGoogleDriveData();
+      setState(() {});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Déconnecté de Google Drive'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la déconnexion: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _backupToGoogleDrive() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final result = await GoogleDriveService.backupToGoogleDrive(
+        includePaymentHistory: true,
+        includeConfiguration: true,
+      );
+
+      setState(() => _isLoading = false);
+
+      if (result.success) {
+        await _loadGoogleDriveData();
+        setState(() {});
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Sauvegarde réussie sur Google Drive'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: ${result.message}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la sauvegarde: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _performGoogleSync() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final result = await GoogleDriveService.performAutoSync();
+
+      setState(() => _isLoading = false);
+
+      if (result.success) {
+        await _loadGoogleDriveData();
+        setState(() {});
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Synchronisation réussie'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Info: ${result.message}'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la synchronisation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreFromGoogleDrive(GoogleDriveBackupInfo backup) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirmer la restauration'),
+        content: Text(
+          'Êtes-vous sûr de vouloir restaurer cette sauvegarde ?\n\n'
+          'Cette action remplacera toutes vos données actuelles.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: Text('Restaurer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        setState(() => _isLoading = true);
+
+        final result =
+            await GoogleDriveService.restoreFromGoogleDrive(backup.id);
+
+        setState(() => _isLoading = false);
+
+        if (result.success) {
+          await _loadData();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Restauration réussie depuis Google Drive'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Erreur: ${result.message}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur lors de la restauration: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteGoogleBackup(GoogleDriveBackupInfo backup) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirmer la suppression'),
+        content: Text('Êtes-vous sûr de vouloir supprimer cette sauvegarde ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final success = await GoogleDriveService.deleteBackup(backup.id);
+
+        if (success) {
+          await _loadGoogleDriveData();
+          setState(() {});
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Sauvegarde supprimée'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Erreur lors de la suppression'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _configureAutoSync() async {
+    await GoogleDriveService.configureAutoSync(
+      enabled: _googleSyncEnabled,
+      intervalHours: 24, // Quotidien par défaut
+      wifiOnly: true,
+    );
+  }
+
+  void _showSyncFrequencyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Fréquence de synchronisation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<int>(
+              title: Text('Toutes les heures'),
+              value: 1,
+              groupValue: 24,
+              onChanged: (value) {
+                Navigator.pop(context);
+                // TODO: Configurer la fréquence
+              },
+            ),
+            RadioListTile<int>(
+              title: Text('Quotidienne'),
+              value: 24,
+              groupValue: 24,
+              onChanged: (value) {
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<int>(
+              title: Text('Hebdomadaire'),
+              value: 168,
+              groupValue: 24,
+              onChanged: (value) {
+                Navigator.pop(context);
+                // TODO: Configurer la fréquence
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

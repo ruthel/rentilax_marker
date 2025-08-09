@@ -4,11 +4,23 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_service.dart';
+import '../screens/enhanced_releves_screen.dart';
+import '../screens/payment_management_screen.dart';
+import '../screens/advanced_dashboard_screen.dart';
+import '../screens/releve_detail_screen.dart';
 
 class AdvancedNotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
   static final DatabaseService _databaseService = DatabaseService();
+
+  // Clé de navigation globale pour permettre la navigation depuis les notifications
+  static GlobalKey<NavigatorState>? _navigatorKey;
+
+  /// Définit la clé de navigation globale pour permettre la navigation depuis les notifications
+  static void setNavigatorKey(GlobalKey<NavigatorState> navigatorKey) {
+    _navigatorKey = navigatorKey;
+  }
 
   static Future<void> initialize() async {
     const androidSettings =
@@ -59,23 +71,251 @@ class AdvancedNotificationService {
   }
 
   static void _handleNotificationPayload(String payload) {
-    // TODO: Implémenter la navigation basée sur le payload
+    if (_navigatorKey?.currentContext == null) {
+      debugPrint(
+          'NavigatorKey not available, cannot navigate from notification');
+      return;
+    }
+
+    final context = _navigatorKey!.currentContext!;
     final parts = payload.split('|');
+
     if (parts.length >= 2) {
       final type = parts[0];
-      // final id = parts[1]; // Unused for now
+      final id = parts[1];
 
       switch (type) {
         case 'reading_reminder':
-          // Naviguer vers l'écran des relevés
+          _navigateToReadingReminder(context, int.tryParse(id));
           break;
         case 'payment_due':
-          // Naviguer vers l'écran des paiements
+          _navigateToPaymentDue(context, int.tryParse(id));
           break;
         case 'monthly_report':
-          // Naviguer vers le rapport mensuel
+          _navigateToMonthlyReport(context, id);
           break;
+        default:
+          debugPrint('Unknown notification type: $type');
       }
+    }
+  }
+
+  /// Navigation vers l'écran des relevés pour un rappel de relevé
+  static void _navigateToReadingReminder(
+      BuildContext context, int? locataireId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const EnhancedRelevesScreen(),
+      ),
+    );
+
+    // Afficher un message contextuel
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (locataireId != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.notification_important, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child:
+                      Text('Rappel : Il est temps de faire un nouveau relevé'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Nouveau relevé',
+              textColor: Colors.white,
+              onPressed: () {
+                // Déclencher l'ajout d'un nouveau relevé
+                // Cette action sera gérée par l'écran des relevés
+              },
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+  /// Navigation vers la gestion des paiements pour un paiement en retard
+  static void _navigateToPaymentDue(
+      BuildContext context, int? locataireId) async {
+    if (locataireId == null) {
+      _navigateToMonthlyReport(context, 'payments');
+      return;
+    }
+
+    try {
+      // Récupérer les informations du locataire et ses relevés impayés
+      final locataire = await _databaseService.getLocataireById(locataireId);
+      if (locataire == null) {
+        _showErrorSnackBar(context, 'Locataire introuvable');
+        return;
+      }
+
+      final releves = await _databaseService.getRelevesByLocataire(locataireId);
+      final unpaidReleves = releves.where((r) => !r.isPaid).toList();
+
+      if (unpaidReleves.isEmpty) {
+        _showInfoSnackBar(
+            context, 'Aucun paiement en retard pour ce locataire');
+        return;
+      }
+
+      // Naviguer vers la gestion des paiements du premier relevé impayé
+      final oldestUnpaidReleve = unpaidReleves
+          .reduce((a, b) => a.dateReleve.isBefore(b.dateReleve) ? a : b);
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PaymentManagementScreen(
+            releve: oldestUnpaidReleve,
+            locataire: locataire,
+          ),
+        ),
+      );
+
+      // Afficher un message contextuel
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.payment, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Paiement en retard : ${oldestUnpaidReleve.montant.toStringAsFixed(0)} FCFA',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      });
+    } catch (e) {
+      if (context.mounted) {
+        _showErrorSnackBar(
+            context, 'Erreur lors du chargement des données de paiement');
+      }
+    }
+  }
+
+  /// Navigation vers le rapport mensuel ou le dashboard
+  static void _navigateToMonthlyReport(
+      BuildContext context, String reportType) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const AdvancedDashboardScreen(),
+      ),
+    );
+
+    // Afficher un message contextuel selon le type de rapport
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!context.mounted) return;
+      String message;
+      Color backgroundColor;
+      IconData icon;
+
+      switch (reportType) {
+        case 'payments':
+          message = 'Consultez l\'état des paiements dans le dashboard';
+          backgroundColor = Colors.orange;
+          icon = Icons.payment;
+          break;
+        default:
+          message = 'Votre rapport mensuel est disponible';
+          backgroundColor = Colors.green;
+          icon = Icons.assessment;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text(message)),
+            ],
+          ),
+          backgroundColor: backgroundColor,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    });
+  }
+
+  /// Afficher un message d'erreur
+  static void _showErrorSnackBar(BuildContext context, String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.error, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Afficher un message d'information
+  static void _showInfoSnackBar(BuildContext context, String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.info, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Navigation directe vers les détails d'un relevé spécifique
+  static Future<void> navigateToReleveDetails(
+      BuildContext context, int releveId) async {
+    try {
+      final releve = await _databaseService.getReleveById(releveId);
+      if (releve == null) {
+        if (context.mounted) {
+          _showErrorSnackBar(context, 'Relevé introuvable');
+        }
+        return;
+      }
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ReleveDetailScreen(releveId: releveId),
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        _showErrorSnackBar(context, 'Erreur lors du chargement du relevé');
+      }
+    }
+  }
+
+  /// Méthode publique pour tester la navigation depuis l'interface
+  static void testNotificationNavigation(String type, String id) {
+    if (_navigatorKey?.currentContext != null) {
+      _handleNotificationPayload('$type|$id');
     }
   }
 

@@ -47,13 +47,17 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
   # Phase 3: Backup, Export, Import
-  path_provider: ^2.1.4
+  path_provider: ^2.1.1
   archive: ^3.6.1
   crypto: ^3.0.5
   excel: ^4.0.6
   csv: ^6.0.0
   file_picker: ^8.1.2
   share_plus: ^10.0.2
+  google_sign_in: ^6.1.5
+  googleapis: ^14.0.0
+  googleapis_auth: ^1.4.1
+  http: ^1.1.0
 
 dev_dependencies:
   flutter_test:

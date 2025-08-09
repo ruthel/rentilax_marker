@@ -21,7 +21,7 @@ class PaymentHistory {
       'releve_id': releveId,
       'amount': amount,
       'payment_method': paymentMethod,
-      'payment_date': paymentDate.millisecondsSinceEpoch,
+      'payment_date': paymentDate.toIso8601String(),
       'notes': notes,
     };
   }
@@ -32,7 +32,9 @@ class PaymentHistory {
       releveId: map['releve_id'],
       amount: map['amount'].toDouble(),
       paymentMethod: map['payment_method'],
-      paymentDate: DateTime.fromMillisecondsSinceEpoch(map['payment_date']),
+      paymentDate: map['payment_date'] is String
+          ? DateTime.parse(map['payment_date'])
+          : DateTime.fromMillisecondsSinceEpoch(map['payment_date']),
       notes: map['notes'],
     );
   }

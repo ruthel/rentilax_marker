@@ -109,10 +109,12 @@ class _EnhancedLocatairesScreenState extends State<EnhancedLocatairesScreen>
         // Filtre par statut de tarif
         if (_activeFilters['tarif_status'] != null) {
           final hasCustomTarif = locataire.tarifPersonnalise != null;
-          if (_activeFilters['tarif_status'] == 'custom' && !hasCustomTarif)
+          if (_activeFilters['tarif_status'] == 'custom' && !hasCustomTarif) {
             return false;
-          if (_activeFilters['tarif_status'] == 'default' && hasCustomTarif)
+          }
+          if (_activeFilters['tarif_status'] == 'default' && hasCustomTarif) {
             return false;
+          }
         }
 
         // Filtre par date d'entrée
@@ -231,7 +233,9 @@ class _EnhancedLocatairesScreenState extends State<EnhancedLocatairesScreen>
     if (_activeFilters['cite_id'] != null) count++;
     if (_activeFilters['tarif_status'] != null) count++;
     if (_activeFilters['date_start'] != null ||
-        _activeFilters['date_end'] != null) count++;
+        _activeFilters['date_end'] != null) {
+      count++;
+    }
     return count;
   }
 

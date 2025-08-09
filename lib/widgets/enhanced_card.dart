@@ -38,7 +38,6 @@ class _EnhancedCardState extends State<EnhancedCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _elevationAnimation;
   bool _isPressed = false;
 
   @override
@@ -52,14 +51,6 @@ class _EnhancedCardState extends State<EnhancedCard>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.98,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-
-    _elevationAnimation = Tween<double>(
-      begin: widget.elevation ?? 2,
-      end: (widget.elevation ?? 2) + 4,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,

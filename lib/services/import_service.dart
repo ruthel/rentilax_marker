@@ -549,8 +549,11 @@ class ImportService {
       final isPaidStr =
           _getValueFromMapping(row, mapping, 'isPaid')?.toString();
 
-      if (locataireNom == null || consommationStr == null || montantStr == null)
+      if (locataireNom == null ||
+          consommationStr == null ||
+          montantStr == null) {
         return null;
+      }
 
       final consommation = double.tryParse(consommationStr) ?? 0.0;
       final montant = double.tryParse(montantStr) ?? 0.0;

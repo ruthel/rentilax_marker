@@ -161,7 +161,9 @@ class _CitesScreenState extends State<CitesScreen>
     int count = 0;
     if (_activeFilters['sort'] != null) count++;
     if (_activeFilters['date_start'] != null ||
-        _activeFilters['date_end'] != null) count++;
+        _activeFilters['date_end'] != null) {
+      count++;
+    }
     return count;
   }
 

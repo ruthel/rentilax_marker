@@ -1,0 +1,63 @@
+# Exemple de configuration pubspec.yaml avec les dépendances Google Drive
+# Copiez ces dépendances dans votre fichier pubspec.yaml existant
+
+name: rentilax_marker
+description: Application de gestion des relevés de consommation
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Dépendances existantes (à conserver)
+  cupertino_icons: ^1.0.2
+  sqflite: ^2.3.0
+  intl: ^0.18.1
+  path: ^1.8.3
+  
+  # Nouvelles dépendances pour Google Drive
+  google_sign_in: ^6.1.5
+  googleapis: ^11.4.0
+  http: ^1.1.0
+  path_provider: ^2.1.1
+  shared_preferences: ^2.2.2
+  
+  # Dépendances optionnelles pour des fonctionnalités avancées
+  connectivity_plus: ^5.0.1  # Pour vérifier la connexion Wi-Fi
+  device_info_plus: ^9.1.0   # Pour les informations de l'appareil
+  package_info_plus: ^4.2.0  # Pour les informations de l'app
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  
+  # Assets existants (à conserver)
+  assets:
+    - assets/images/
+    - assets/icons/
+  
+  # Fonts existantes (à conserver)
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: fonts/Roboto-Regular.ttf
+        - asset: fonts/Roboto-Bold.ttf
+          weight: 700
+
+# Configuration spécifique pour Google Drive
+flutter:
+  # Configuration Android
+  android:
+    # Le fichier google-services.json doit être placé dans android/app/
+    
+  # Configuration iOS  
+  ios:
+    # Le fichier GoogleService-Info.plist doit être placé dans ios/Runner/

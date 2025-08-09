@@ -128,7 +128,6 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
 
   Widget _buildFilterOption(FilterOption option) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     switch (option.type) {
       case FilterType.checkbox:

@@ -95,14 +95,11 @@ class _EnhancedGlobalSearchScreenState extends State<EnhancedGlobalSearchScreen>
               locataire.numeroLogement.toLowerCase().contains(searchQuery)) {
             // Récupérer le nom de la cité
             String citeName = 'Cité inconnue';
-            if (locataire.citeId != null) {
-              try {
-                final cite =
-                    await _databaseService.getCiteById(locataire.citeId!);
-                citeName = cite?.nom ?? 'Cité inconnue';
-              } catch (e) {
-                // Ignore l'erreur
-              }
+            try {
+              final cite = await _databaseService.getCiteById(locataire.citeId);
+              citeName = cite?.nom ?? 'Cité inconnue';
+            } catch (e) {
+              // Ignore l'erreur
             }
 
             results.add(SearchResult(

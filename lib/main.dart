@@ -14,7 +14,8 @@ import 'services/theme_service.dart';
 import 'services/language_service.dart';
 import 'services/enhanced_notification_service.dart';
 import 'services/advanced_notification_service.dart';
-import 'widgets/modern_splash_screen.dart';
+import 'services/real_time_sync_service.dart';
+import 'services/sync_scheduler_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,10 @@ void main() async {
   tz.initializeTimeZones();
   await EnhancedNotificationService.initialize();
   await AdvancedNotificationService.initialize();
+
+  // Initialisation des services de synchronisation
+  await SyncSchedulerService.initialize();
+  await RealTimeSyncService.instance.initialize();
 
   runApp(const RentilaxTrackerApp());
 }

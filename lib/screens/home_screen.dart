@@ -7,7 +7,6 @@ import 'enhanced_locataires_screen.dart';
 import 'enhanced_releves_screen.dart';
 import 'enhanced_configuration_screen.dart';
 import 'advanced_dashboard_screen.dart';
-import 'backup_sync_screen.dart';
 import 'tarifs_management_screen.dart';
 import '../models/releve.dart';
 import '../models/configuration.dart';
@@ -72,7 +71,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final locataires = await _databaseService.getLocataires();
       final cites = await _databaseService.getCites();
       final config = await _databaseService.getConfiguration();
-      final units = await _unitService.getAllUnits();
       setState(() {
         _monthlyReleves = releves;
         _allLocataires = locataires;

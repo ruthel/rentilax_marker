@@ -104,7 +104,7 @@ class _ModernStatsCardState extends State<ModernStatsCard>
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: (widget.iconColor ?? colorScheme.primary)
-                                    .withOpacity(0.1),
+                                    .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
@@ -122,8 +122,8 @@ class _ModernStatsCardState extends State<ModernStatsCard>
                                 ),
                                 decoration: BoxDecoration(
                                   color: widget.isPositiveTrend
-                                      ? Colors.green.withOpacity(0.1)
-                                      : Colors.red.withOpacity(0.1),
+                                      ? Colors.green.withValues(alpha: 0.1)
+                                      : Colors.red.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -205,7 +205,7 @@ class _ModernStatsCardState extends State<ModernStatsCard>
                                       show: true,
                                       color: (widget.iconColor ??
                                               colorScheme.primary)
-                                          .withOpacity(0.1),
+                                          .withValues(alpha: 0.1),
                                     ),
                                   ),
                                 ],
@@ -288,11 +288,11 @@ class _ModernProgressCardState extends State<ModernProgressCard>
         color: widget.backgroundColor ?? colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colorScheme.outline.withOpacity(0.1),
+          color: colorScheme.outline.withValues(alpha: 0.1),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

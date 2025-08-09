@@ -145,7 +145,7 @@ class ModernSliverAppBar extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        colorScheme.primary.withOpacity(0.1),
+                        colorScheme.primary.withValues(alpha: 0.1),
                         colorScheme.surface,
                       ],
                     ),
@@ -191,7 +191,7 @@ class ModernTabBar extends StatelessWidget implements PreferredSizeWidget {
         color: colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: colorScheme.outline.withOpacity(0.2),
+            color: colorScheme.outline.withValues(alpha: 0.2),
             width: 1,
           ),
         ),

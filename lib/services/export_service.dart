@@ -75,7 +75,7 @@ class ExportService {
 
       // Sauvegarder le PDF
       final output = await _getExportDirectory();
-      final fileName = 'rapport_mensuel_${month}_${year}.pdf';
+      final fileName = 'rapport_mensuel_${month}_$year.pdf';
       final file = File('${output.path}/$fileName');
       await file.writeAsBytes(await pdf.save());
 
@@ -508,12 +508,12 @@ class ExportService {
                 children: [
                   _buildTableCell(locataire.nomComplet),
                   _buildTableCell(cite.nom),
-                  _buildTableCell('${releve.consommation.toStringAsFixed(1)}'),
+                  _buildTableCell(releve.consommation.toStringAsFixed(1)),
                   _buildTableCell('${releve.montant.toStringAsFixed(0)} FCFA'),
                   _buildTableCell(releve.isPaid ? 'Payé' : 'Impayé'),
                 ],
               );
-            }).toList(),
+            }),
           ],
         ),
 
@@ -618,10 +618,10 @@ class ExportService {
                   _buildTableCell(
                       '${entry.value['paid']!.toStringAsFixed(0)} FCFA'),
                   _buildTableCell(
-                      '${entry.value['consumption']!.toStringAsFixed(1)}'),
+                      entry.value['consumption']!.toStringAsFixed(1)),
                 ],
               );
-            }).toList(),
+            }),
           ],
         ),
       ],

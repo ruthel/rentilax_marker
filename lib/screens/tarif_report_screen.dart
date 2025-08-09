@@ -4,7 +4,6 @@ import '../models/unit_tarif.dart';
 import '../models/unit_type.dart';
 import '../services/tarif_service.dart';
 import '../services/unit_service.dart';
-import '../services/database_service.dart';
 import '../widgets/section_title.dart';
 import '../utils/app_spacing.dart';
 
@@ -169,9 +168,9 @@ class _TarifReportScreenState extends State<TarifReportScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color: Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -413,8 +412,8 @@ class _TarifReportScreenState extends State<TarifReportScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor:
-              _getTypeColor(unit?.type ?? UnitType.water).withOpacity(0.1),
+          backgroundColor: _getTypeColor(unit?.type ?? UnitType.water)
+              .withValues(alpha: 0.1),
           child: Icon(
             _getTypeIcon(unit?.type ?? UnitType.water),
             color: _getTypeColor(unit?.type ?? UnitType.water),

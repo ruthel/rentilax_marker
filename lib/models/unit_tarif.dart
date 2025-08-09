@@ -23,8 +23,8 @@ class UnitTarif {
       'unit_id': unitId,
       'tarif': tarif,
       'devise': devise,
-      'date_creation': dateCreation.millisecondsSinceEpoch,
-      'date_modification': dateModification?.millisecondsSinceEpoch,
+      'date_creation': dateCreation.toIso8601String(),
+      'date_modification': dateModification?.toIso8601String(),
       'is_active': isActive ? 1 : 0,
     };
   }
@@ -35,9 +35,13 @@ class UnitTarif {
       unitId: map['unit_id'],
       tarif: map['tarif'].toDouble(),
       devise: map['devise'] ?? 'FCFA',
-      dateCreation: DateTime.fromMillisecondsSinceEpoch(map['date_creation']),
+      dateCreation: map['date_creation'] is String
+          ? DateTime.parse(map['date_creation'])
+          : DateTime.fromMillisecondsSinceEpoch(map['date_creation']),
       dateModification: map['date_modification'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['date_modification'])
+          ? (map['date_modification'] is String
+              ? DateTime.parse(map['date_modification'])
+              : DateTime.fromMillisecondsSinceEpoch(map['date_modification']))
           : null,
       isActive: map['is_active'] == 1,
     );
